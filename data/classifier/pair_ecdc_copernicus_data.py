@@ -21,6 +21,7 @@ warnings.filterwarnings('ignore')
 # Custom modules - change these lines
 from src import copernicus
 from src import aedes_suitability
+from src import unified_climate_downloader
 
 def setup_directories():
     """Create necessary directories"""
@@ -117,81 +118,35 @@ def load_climate_data(year, climate_source='cordex'):
         year: Year for analysis
         climate_source: 'cordex' (default) or 'era5_land'
     """
-    if climate_source == 'cordex':
-        # Original CORDEX implementation
-        importlib.reload(copernicus)
-        from src.copernicus import load_eurocordex_monthly, create_climate_dataframe_fast
-        from src.copernicus import climate_climatology, add_detailed_monthly_columns
-        
-        print(f"📡 Loading CORDEX projection data for {year}...")
-        ds = load_eurocordex_monthly(
-            out_dir="./data/inputs/",
-            domain="europe",
-            resolution="0_11_degree_x_0_11_degree",
-            experiment="rcp_4_5",
-            gcm_model="mpi_m_mpi_esm_lr",
-            rcm_model="smhi_rca4",
-            ensemble="r1i1p1",
-            year_start=str(int(year)-9),
-            year_end=str(year),
-            variables=("2m_air_temperature", "mean_precipitation_flux"),
-            expected_suffix="v1a_mon",
-            force_redownload=False,
-        )
-        
-        # Monthly climatology
-        p_month, t_month = climate_climatology(ds)
-        
-        # Build climate dataframe
-        climate_df = create_climate_dataframe_fast(p_month, t_month, year=year)
-        climate_df = add_detailed_monthly_columns(climate_df)
-        
-    elif climate_source == 'era5_land':
-        # ERA5-Land implementation
-        from src.era5_land_downloader import ERA5LandDownloader
-        import xarray as xr
-        
-        print(f"📡 Loading ERA5-Land reanalysis data for {year}...")
-        downloader = ERA5LandDownloader(base_output_dir="./data/inputs/")
-        
-        # Download required variables
-        temp_file = downloader.ensure_data_available("2m_temperature", int(year), freq="daily")
-        precip_file = downloader.ensure_data_available("total_precipitation", int(year), freq="daily")
-        
-        # Load datasets
-        ds_temp = xr.open_dataset(temp_file)
-        ds_precip = xr.open_dataset(precip_file)
-        
-        # Merge and convert to monthly climatology
-        ds = xr.merge([ds_temp, ds_precip])
-        ds = ds.rename({"t2m": "t2m", "tp": "tp"})  # Ensure consistent naming
-        
-        # Convert to monthly means
-        ds_monthly = ds.resample(time="1M").mean()
-        
-        # Group by month (1-12) to get climatology
-        p_month = ds_monthly["tp"].groupby("time.month").mean()
-        t_month = ds_monthly["t2m"].groupby("time.month").mean()
-        
-        # Build climate dataframe using CORDEX functions (they should work for ERA5 too)
-        from src.copernicus import create_climate_dataframe_fast, add_detailed_monthly_columns
-        climate_df = create_climate_dataframe_fast(p_month, t_month, year=year)
-        climate_df = add_detailed_monthly_columns(climate_df)
-        
-    else:
-        raise ValueError(f"Unknown climate_source: {climate_source}. Use 'cordex' or 'era5_land'")
+    print(f"📡 Loading {climate_source.upper()} climate data for {year}...")
+    
+    # Use unified downloader
+    p_month, t_month = unified_climate_downloader.load_climate_data_unified(
+        year=int(year),
+        climate_source=climate_source,
+        out_dir="./data/inputs/"
+    )
     
     print("Dataset shapes:")
     print("Precipitation:", p_month.shape)
     print("Temperature:", t_month.shape)
+    
+    # Build climate dataframe
+    climate_df = unified_climate_downloader.create_climate_dataframe(
+        p_month=p_month,
+        t_month=t_month,
+        year=int(year),
+        add_monthly_columns=True
+    )
+    
     print(f"\n📊 DataFrame: {climate_df.shape} columns: {list(climate_df.columns)}")
     
-    # Create climate maps
-    create_climate_maps(p_month, t_month, year)
+    # Create climate maps with climate_source
+    create_climate_maps(p_month, t_month, year, climate_source)
     
     return climate_df
 
-def create_climate_maps(p_month, t_month, year):
+def create_climate_maps(p_month, t_month, year, climate_source='cordex'):
     """Create climate visualization maps"""
     # January maps
     january_date = 1
@@ -201,19 +156,19 @@ def create_climate_maps(p_month, t_month, year):
     # Precipitation map
     plt.figure(figsize=(12, 6))
     p_january.plot(cmap='Blues', robust=True)
-    plt.title(f'Total Precipitation in January ({year})')
+    plt.title(f'Total Precipitation in January ({year}) - {climate_source.upper()}')
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
-    plt.savefig(f"data/img/precipitation_january_{year}.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"data/img/precipitation_january_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
     plt.close()
     
     # Temperature map
     plt.figure(figsize=(12, 6))
     t_january.plot(cmap='coolwarm', robust=True)
-    plt.title(f'2m Temperature in January ({year})')
+    plt.title(f'2m Temperature in January ({year}) - {climate_source.upper()}')
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
-    plt.savefig(f"data/img/temperature_january_{year}.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"data/img/temperature_january_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
     plt.close()
 
 def merge_datasets(gdf_albo, climate_df):
@@ -242,7 +197,7 @@ def merge_datasets(gdf_albo, climate_df):
     
     return gdf_merged
 
-def calculate_suitability(gdf_merged, year):
+def calculate_suitability(gdf_merged, year, climate_source='cordex'):
     """Calculate climate suitability for Aedes albopictus"""
     # Filter training data
     gdf_training = gdf_merged[gdf_merged["presence_numeric"] < 4].copy()
@@ -259,31 +214,49 @@ def calculate_suitability(gdf_merged, year):
     df['Temperature Suitable'] = aedes_temperature_suitability(tavg)
     df['Suitable'] = np.logical_and(df['Precipitation Suitable'], df['Temperature Suitable'])
     
-    # Create suitability plots
-    create_suitability_plots(df, year)
+    # Create suitability plots with climate_source
+    create_suitability_plots(df, year, climate_source)
     
     return df
 
-def create_suitability_plots(df, year):
+def create_suitability_plots(df, year, climate_source='cordex'):
     """Create suitability analysis plots"""
     # Count plots
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
-    sns.countplot(x='Suitable', data=df, ax=axes[0])
-    axes[0].set_title('Suitability Count')
+    sns.countplot(x='Suitable', data=df, ax=axes[0], palette='Set2')
+    axes[0].set_title(f'Overall Suitability - {climate_source.upper()}')
     
-    sns.countplot(x='Temperature Suitable', data=df, ax=axes[1])
-    axes[1].set_title('Temperature Suitability Count')
+    sns.countplot(x='Temperature Suitable', data=df, ax=axes[1], palette='RdYlBu_r')
+    axes[1].set_title(f'Temperature Suitability - {climate_source.upper()}')
     
-    sns.countplot(x='Precipitation Suitable', data=df, ax=axes[2])
-    axes[2].set_title('Precipitation Suitability Count')
+    sns.countplot(x='Precipitation Suitable', data=df, ax=axes[2], palette='Blues')
+    axes[2].set_title(f'Precipitation Suitability - {climate_source.upper()}')
     
     plt.tight_layout()
-    plt.savefig(f"data/img/suitability_counts_{year}.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"data/img/suitability_counts_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
     plt.close()
     
     # Geographic suitability maps
     df_web = df.to_crs(epsg=3857)
+    
+    # Temperature suitability map
+    fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+    df_web.plot(
+        column='Temperature Suitable',
+        categorical=True,
+        legend=True,
+        markersize=1,
+        ax=ax,
+        cmap='RdYlBu_r',
+        alpha=0.8,
+        zorder=2
+    )
+    ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_web.crs, zoom=5)
+    ax.set_title(f"Temperature Suitability Map - {climate_source.upper()} ({year})")
+    ax.set_axis_off()
+    plt.savefig(f"data/img/temperature_suitability_map_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
+    plt.close()
     
     # Precipitation suitability map
     fig, ax = plt.subplots(1, 1, figsize=(10, 8))
@@ -293,14 +266,14 @@ def create_suitability_plots(df, year):
         legend=True,
         markersize=1,
         ax=ax,
-        cmap='Set1',
+        cmap='Blues',
         alpha=0.8,
         zorder=2
     )
     ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_web.crs, zoom=5)
-    ax.set_title("Precipitation Suitability Map")
+    ax.set_title(f"Precipitation Suitability Map - {climate_source.upper()} ({year})")
     ax.set_axis_off()
-    plt.savefig(f"data/img/precipitation_suitability_map_{year}.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"data/img/precipitation_suitability_map_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
     plt.close()
     
     # Overall suitability map
@@ -311,17 +284,17 @@ def create_suitability_plots(df, year):
         legend=True,
         markersize=1,
         ax=ax,
-        cmap='Set1',
+        cmap='RdYlGn',
         alpha=0.8,
         zorder=2
     )
     ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_web.crs, zoom=5)
-    ax.set_title("Overall Suitability Map")
+    ax.set_title(f"Overall Suitability Map - {climate_source.upper()} ({year})")
     ax.set_axis_off()
-    plt.savefig(f"data/img/overall_suitability_map_{year}.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"data/img/overall_suitability_map_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
     plt.close()
 
-def filter_european_data(df, year):
+def filter_european_data(df, year, climate_source='cordex'):
     """Filter data for continental European countries"""
     continental_european_country_codes = [
         'AL', 'AD', 'AT', 'BY', 'BE', 'BA', 'BG', 'CH', 'CY', 'CZ', 'DE', 'DK', 
@@ -346,16 +319,16 @@ def filter_european_data(df, year):
         df_aggregated['longitude'], 
         df_aggregated['latitude'], 
         c=df_aggregated['Suitable'], 
-        cmap='bwr',
+        cmap='RdYlGn',
         s=0.01,
         alpha=0.9
     )
     plt.colorbar(label='Suitable (1) / Not suitable (0)')
-    plt.title('High-Resolution Aggregation of Presence and Absence')
+    plt.title(f'High-Resolution Aggregation - {climate_source.upper()} ({year})')
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     plt.grid(True)
-    plt.savefig(f"data/img/european_suitability_aggregation_{year}.png", dpi=150, bbox_inches='tight')
+    plt.savefig(f"data/img/european_suitability_aggregation_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
     plt.close()
     
     return df_european_nuts3
@@ -420,17 +393,18 @@ def save_results_to_database(df, year, climate_source='cordex', output_dir='./da
     
     # Save to CSV
     df_clean.to_csv(output_path, index=False)
-    print(f"✅ Database saved: {output_path}")
+    
+    # Always save as zip
+    compressed_path = output_path.replace('.csv', '.zip')
+    df_clean.to_csv(compressed_path, index=False, compression='zip')
+    
+    # Remove uncompressed CSV
+    os.remove(output_path)
+    
+    print(f"✅ Database saved: {compressed_path}")
     print(f"   Shape: {df_clean.shape}")
     print(f"   Columns: {len(df_clean.columns)}")
-    print(f"   File size: {os.path.getsize(output_path) / 1024:.1f} KB")
-    
-    # Also save a compressed version for large datasets
-    if os.path.getsize(output_path) > 1_000_000:  # > 1MB
-        compressed_path = output_path.replace('.csv', '.csv.gz')
-        df_clean.to_csv(compressed_path, index=False, compression='gzip')
-        print(f"✅ Compressed version saved: {compressed_path}")
-        print(f"   File size: {os.path.getsize(compressed_path) / 1024:.1f} KB")
+    print(f"   File size: {os.path.getsize(compressed_path) / 1024:.1f} KB")
     
     # Print data summary
     print("\n📊 Data Summary:")
@@ -443,7 +417,7 @@ def save_results_to_database(df, year, climate_source='cordex', output_dir='./da
         suitable_pct = suitable_count / len(df_clean) * 100
         print(f"   Climate suitable: {suitable_count} ({suitable_pct:.1f}%)")
     
-    return output_path
+    return compressed_path
 
 def main():
     """Main execution function"""
@@ -493,12 +467,12 @@ def main():
     # Calculate suitability
     print("\n" + "="*50)
     print("Calculating suitability...")
-    df_with_suitability = calculate_suitability(gdf_merged, year)
+    df_with_suitability = calculate_suitability(gdf_merged, year, climate_source=climate_source)
     
     # Filter for European data
     print("\n" + "="*50)
     print("Processing European data...")
-    df_european = filter_european_data(df_with_suitability, year)
+    df_european = filter_european_data(df_with_suitability, year, climate_source=climate_source)
     
     # Save to clean database format
     print("\n" + "="*50)
