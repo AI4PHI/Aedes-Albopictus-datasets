@@ -37,6 +37,7 @@ import sys
 import argparse
 import logging
 from typing import Dict, Tuple, Optional, List
+from pathlib import Path
 
 import pandas as pd
 import xarray as xr
@@ -189,7 +190,7 @@ class TrapClimateProcessor:
             year: Year for the data
 
         Returns:
-            Path to the NetCDF file
+            Path to the NetCDF file in format: {path_dir}{year}/{var}_{freq}_{suffix}_{year}.nc
         """
         freq = self.config['freq']
         path_dir = self.config['path_dir']
@@ -210,6 +211,7 @@ class TrapClimateProcessor:
         else:
             suffix = "cum"
 
+        # path_dir already ends with "/" from config
         return f"{path_dir}{year}/{var}_{freq}_{suffix}_{year}.nc"
 
     def load_climate_datasets(self, var: str, first_year: int, last_year: int) -> Optional[xr.Dataset]:
@@ -436,9 +438,9 @@ def create_default_config() -> Dict:
     """Create default configuration dictionary."""
     # --- Path configuration ---
     # Get the absolute path of the directory containing this script
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = Path(__file__).parent.resolve()
     # Get the parent directory of the script's directory (e.g., 'counter/')
-    base_dir = os.path.dirname(script_dir)
+    base_dir = script_dir.parent
 
     return {
         # Date filtering
@@ -463,10 +465,10 @@ def create_default_config() -> Dict:
         'months_to_average': 3,
         'days_per_month': 30,
 
-        # File system paths (now absolute)
+        # File system paths (relative to script location)
         'freq': "daily",
-        'climate_data_dir': os.path.join(base_dir, "data_input", "copernicus_climate_data"),
-        'path_dir': os.path.join(base_dir, "data_input", "copernicus_climate_data", "europe", "data/"),
+        'climate_data_dir': str(base_dir / "input_data" / "climate"),
+        'path_dir': str(base_dir / "input_data" / "climate" / "processed" / "europe" / "daily") + "/",
     }
 
 
@@ -492,12 +494,12 @@ def main():
     )
     parser.add_argument(
         '-o', '--output',
-        default="albopictus_with_climate_3m",
-        help="Output filename prefix (default: albopictus_with_climate_3m)"
+        default="./output_data/albopictus_with_climate_3m",
+        help="Output filename prefix (default: ../output_data/albopictus_with_climate_3m)"
     )
     parser.add_argument(
         '--climate-path',
-        help="Path to climate data directory (overrides default)"
+        help="Path to climate data directory (overrides default). This should point to the base climate directory containing 'raw/' and 'processed/' subdirectories."
     )
     parser.add_argument(
         '--start-date',
@@ -537,14 +539,17 @@ def main():
 
     # --- Handle input file path ---
     # Default input file path relative to the script's parent directory
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    default_input_file = os.path.join(base_dir, "output_data", "albopictus.pkl")
+    script_dir = Path(__file__).parent.resolve()
+    base_dir = script_dir.parent
+    default_input_file = base_dir / "output_data" / "albopictus.pkl"
     
-    input_file = args.input_file if args.input_file else default_input_file
+    input_file = Path(args.input_file) if args.input_file else default_input_file
 
     # Override configuration with command line arguments
     if args.climate_path:
-        config['path_dir'] = args.climate_path
+        # User provided a custom climate data base directory
+        config['climate_data_dir'] = args.climate_path
+        config['path_dir'] = str(Path(args.climate_path) / "processed" / "europe" / "daily") + "/"
     if args.start_date:
         config['filter_start_date'] = args.start_date
     if args.end_date:
@@ -558,14 +563,14 @@ def main():
     config['time_window_avg'] = f"{config['days_per_month'] * config['months_to_average'] - 1}D"
 
     # Validate input file
-    if not os.path.exists(input_file):
+    if not input_file.exists():
         logger.error(f"Input file does not exist: {input_file}")
         sys.exit(1)
 
     # Process data
     try:
         processor = TrapClimateProcessor(config)
-        processor.run(input_file, args.output)
+        processor.run(str(input_file), args.output)
 
         logger.info("Processing completed successfully!")
 
