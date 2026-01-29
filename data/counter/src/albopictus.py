@@ -39,7 +39,9 @@ class AlbopictusDataProcessor:
         Args:
             data_dir (str): Directory containing the raw data files
         """
-        self.data_dir = Path(data_dir)
+        # Resolve path relative to this script's location
+        script_dir = Path(__file__).parent
+        self.data_dir = (script_dir / data_dir).resolve()
         self.event_data = None
         self.occurrence_data = None
         self.albopictus_data = None
@@ -326,16 +328,29 @@ class AlbopictusDataProcessor:
 
     def save_data(self, csv_path: str = "albopictus.csv",
                   pickle_path: str = "albopictus.pkl", save_dir: str = "../output_data") -> None:
-        """Save the processed data to CSV and pickle formats."""
-        csv_path = Path(save_dir) / csv_path
-        pickle_path = Path(save_dir) / pickle_path
-        logger.info(f"Saving data to {csv_path} and {pickle_path}...")
+        """
+        Save the processed data to CSV and pickle formats.
+        
+        Args:
+            csv_path: Filename for CSV output (default: albopictus.csv)
+            pickle_path: Filename for pickle output (default: albopictus.pkl)
+            save_dir: Directory for saving outputs (default: ../output_data relative to src/)
+        """
+        # Resolve path relative to this script's location
+        script_dir = Path(__file__).parent
+        save_dir_path = (script_dir / save_dir).resolve()
+        save_dir_path.mkdir(parents=True, exist_ok=True)
+        
+        csv_full_path = save_dir_path / csv_path
+        pickle_full_path = save_dir_path / pickle_path
+        
+        logger.info(f"Saving data to {csv_full_path} and {pickle_full_path}...")
 
         if self.filtered_data is None:
             raise ValueError("No filtered data to save. Run the complete pipeline first.")
 
-        self.filtered_data.to_csv(csv_path, index=False)
-        self.filtered_data.to_pickle(pickle_path)
+        self.filtered_data.to_csv(csv_full_path, index=False)
+        self.filtered_data.to_pickle(pickle_full_path)
 
         logger.info("Data saved successfully")
 

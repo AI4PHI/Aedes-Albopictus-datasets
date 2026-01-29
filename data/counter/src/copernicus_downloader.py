@@ -21,12 +21,16 @@ class CopernicusDownloader:
     Specifically designed for the albopictus trap data analysis pipeline.
     """
 
-    def __init__(self, base_output_dir: str = "../input_data/copernicus_climate_data"):
+    def __init__(self, base_output_dir: str = "../input_data/climate"):
         """
         Initialize the downloader.
 
         Args:
             base_output_dir: Base directory for storing climate data
+                           Default: ../input_data/climate (relative to src/)
+                           Structure:
+                           - raw/{year}/ : Raw downloaded NetCDF files
+                           - processed/europe/daily/{year}/ : Processed regional data
         """
         self.base_output_dir = Path(base_output_dir)
         self.client = None
@@ -36,6 +40,13 @@ class CopernicusDownloader:
         print(f"🔍 DEBUG: base_output_dir (input): '{base_output_dir}'")
         print(f"🔍 DEBUG: self.base_output_dir (Path): '{self.base_output_dir}'")
         print(f"🔍 DEBUG: Absolute path: '{self.base_output_dir.absolute()}'")
+        
+        # Define subdirectories
+        self.raw_dir = self.base_output_dir / "raw"
+        self.processed_dir = self.base_output_dir / "processed" / "europe" / "daily"
+        
+        print(f"🔍 DEBUG: Raw data dir: '{self.raw_dir.absolute()}'")
+        print(f"🔍 DEBUG: Processed data dir: '{self.processed_dir.absolute()}'")
 
         # Variable mapping from expected names to CDS API names
         self.variable_mapping = {
@@ -90,7 +101,7 @@ class CopernicusDownloader:
 
     def _get_expected_file_path(self, variable: str, year: int, freq: str = "daily") -> Path:
         """Get the expected file path for a processed variable."""
-        year_dir = self.base_output_dir / "europe" / "data" / str(year)
+        year_dir = self.processed_dir / str(year)
 
         if variable in self.stats_variables:
             filename = f"{variable}_{freq}_stats_{year}.nc"
@@ -101,9 +112,9 @@ class CopernicusDownloader:
 
     def _get_raw_file_path(self, variable: str, year: int) -> Path:
         """Get the raw downloaded file path."""
-        raw_dir = self.base_output_dir / "raw" / str(year)
-        raw_dir.mkdir(parents=True, exist_ok=True)
-        return raw_dir / f"cds_era5_land_{variable}_{year}.nc"
+        raw_year_dir = self.raw_dir / str(year)
+        raw_year_dir.mkdir(parents=True, exist_ok=True)
+        return raw_year_dir / f"cds_era5_land_{variable}_{year}.nc"
 
     def _extract_zip_if_needed(self, file_path: Path) -> Path:
         """Extract ZIP file if the downloaded file is a ZIP archive."""
@@ -261,7 +272,7 @@ class CopernicusDownloader:
                         'year': str(year),
                         'month': f"{month:02d}",
                         'day': [f"{d:02d}" for d in range(1, 32)],  # All days in month
-                        'time': ['00:00', '06:00', '12:00', '18:00'],  # 4 times per day
+                        'time': [f"{h:02d}:00" for h in range(0, 24)],  # All 24 hours (FIXED)
                         'area': area,
                         'grid': [0.1, 0.1],  # 0.1° resolution
                         'format': 'netcdf',
@@ -475,7 +486,7 @@ class CopernicusDownloader:
         resample_str = resample_map[freq]
 
         # Output directory
-        output_dir = self.base_output_dir / "europe" / "data" / str(year)
+        output_dir = self.processed_dir / str(year)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"🔄 Processing {variable} for {year} at {freq} frequency...")
