@@ -1,0 +1,7 @@
+
+# data artifacts
+*.pkl
+input_data/
+output_data/
+__pycache__/
+
