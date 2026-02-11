@@ -1,0 +1,159 @@
+{
+  "raw": {
+    "occurrence_records_total": 19743,
+    "event_records_total": 20930,
+    "unique_scientific_names": 18,
+    "top_scientific_names": {
+      "Culicidae": 13582,
+      "Aedes albopictus (Skuse, 1894)": 3775,
+      "Aedes japonicus (Theobald, 1901)": 1275,
+      "Aedes": 533,
+      "Culex pipiens Linnaeus, 1758": 336,
+      "Aedes geniculatus (Olivier, 1791)": 64,
+      "Aedes detritus (Haliday, 1833)": 63,
+      "Culiseta longiareolata (Macquart, 1838)": 39,
+      "Aedes caspius (Pallas, 1771)": 32,
+      "Aedes koreicus (Edwards, 1917)": 23,
+      "Culex": 6,
+      "Culex hortensis Ficalbi, 1889": 6,
+      "Culiseta annulata (Schrank, 1776)": 3,
+      "Anopheles plumbeus Stephens, 1828": 2,
+      "Anopheles": 1
+    },
+    "life_stage_counts_raw": {
+      "Egg": 17376,
+      "Adult": 1761,
+      "Larva": 593,
+      "egg": 13
+    },
+    "zeros_total_raw": 11955,
+    "life_stage_by_species_top15": {
+      "Adult": {
+        "Aedes": 2,
+        "Aedes albopictus (Skuse, 1894)": 1053,
+        "Aedes caspius (Pallas, 1771)": 32,
+        "Aedes detritus (Haliday, 1833)": 63,
+        "Aedes geniculatus (Olivier, 1791)": 0,
+        "Aedes japonicus (Theobald, 1901)": 38,
+        "Aedes koreicus (Edwards, 1917)": 19,
+        "Anopheles": 1,
+        "Anopheles plumbeus Stephens, 1828": 2,
+        "Culex": 6,
+        "Culex hortensis Ficalbi, 1889": 6,
+        "Culex pipiens Linnaeus, 1758": 329,
+        "Culicidae": 165,
+        "Culiseta annulata (Schrank, 1776)": 3,
+        "Culiseta longiareolata (Macquart, 1838)": 39
+      },
+      "Egg": {
+        "Aedes": 531,
+        "Aedes albopictus (Skuse, 1894)": 2198,
+        "Aedes caspius (Pallas, 1771)": 0,
+        "Aedes detritus (Haliday, 1833)": 0,
+        "Aedes geniculatus (Olivier, 1791)": 63,
+        "Aedes japonicus (Theobald, 1901)": 1166,
+        "Aedes koreicus (Edwards, 1917)": 0,
+        "Anopheles": 0,
+        "Anopheles plumbeus Stephens, 1828": 0,
+        "Culex": 0,
+        "Culex hortensis Ficalbi, 1889": 0,
+        "Culex pipiens Linnaeus, 1758": 1,
+        "Culicidae": 13417,
+        "Culiseta annulata (Schrank, 1776)": 0,
+        "Culiseta longiareolata (Macquart, 1838)": 0
+      },
+      "Larva": {
+        "Aedes": 0,
+        "Aedes albopictus (Skuse, 1894)": 524,
+        "Aedes caspius (Pallas, 1771)": 0,
+        "Aedes detritus (Haliday, 1833)": 0,
+        "Aedes geniculatus (Olivier, 1791)": 0,
+        "Aedes japonicus (Theobald, 1901)": 59,
+        "Aedes koreicus (Edwards, 1917)": 4,
+        "Anopheles": 0,
+        "Anopheles plumbeus Stephens, 1828": 0,
+        "Culex": 0,
+        "Culex hortensis Ficalbi, 1889": 0,
+        "Culex pipiens Linnaeus, 1758": 6,
+        "Culicidae": 0,
+        "Culiseta annulata (Schrank, 1776)": 0,
+        "Culiseta longiareolata (Macquart, 1838)": 0
+      },
+      "egg": {
+        "Aedes": 0,
+        "Aedes albopictus (Skuse, 1894)": 0,
+        "Aedes caspius (Pallas, 1771)": 0,
+        "Aedes detritus (Haliday, 1833)": 0,
+        "Aedes geniculatus (Olivier, 1791)": 1,
+        "Aedes japonicus (Theobald, 1901)": 12,
+        "Aedes koreicus (Edwards, 1917)": 0,
+        "Anopheles": 0,
+        "Anopheles plumbeus Stephens, 1828": 0,
+        "Culex": 0,
+        "Culex hortensis Ficalbi, 1889": 0,
+        "Culex pipiens Linnaeus, 1758": 0,
+        "Culicidae": 0,
+        "Culiseta annulata (Schrank, 1776)": 0,
+        "Culiseta longiareolata (Macquart, 1838)": 0
+      }
+    }
+  },
+  "extraction": {
+    "albopictus_records": 3775,
+    "zeros_records_all_species": 11955,
+    "zeros_records_albopictus": 0,
+    "zeros_records_non_albopictus": 11955,
+    "life_stage_counts_albopictus": {
+      "Egg": 2198,
+      "Adult": 1053,
+      "Larva": 524
+    },
+    "post_concat_total_records": 15730
+  },
+  "coordinates": {
+    "records_before": 15730,
+    "degree_symbol_lat_rows": 600,
+    "degree_symbol_lon_rows": 600,
+    "comma_decimal_lat_rows": 1,
+    "comma_decimal_lon_rows": 0,
+    "rows_with_nan_coords_after_parse": 0,
+    "records_dropped_missing_coords": 0,
+    "records_after": 15730
+  },
+  "traps": {
+    "trap_id_definition": "ngroup() over exact (decimalLatitude, decimalLongitude) pairs",
+    "unique_traps": 1668,
+    "total_measures": 15730,
+    "measures_per_trap_min": 1,
+    "measures_per_trap_median": 8.0,
+    "measures_per_trap_max": 95
+  },
+  "temporal": {
+    "zero_time_diff_fixed_to_1_day": 7,
+    "time_diff_min": 1,
+    "time_diff_max": 203
+  },
+  "sampling_effort_validation": {
+    "kept_true": 15374,
+    "kept_false": 356,
+    "kept_nan": 0
+  },
+  "final_filtering": {
+    "records_before_filtering": 15730,
+    "life_stage_counts_before": {
+      "Egg": 13995,
+      "Adult": 1211,
+      "Larva": 524
+    },
+    "records_after_life_stage_filter": 15730,
+    "life_stage_counts_after": {
+      "Egg": 13995,
+      "Adult": 1211,
+      "Larva": 524
+    },
+    "records_removed_validation_fail": 356,
+    "final_records": 15374,
+    "final_unique_traps": 1648,
+    "final_zeros": 11755
+  }
+}

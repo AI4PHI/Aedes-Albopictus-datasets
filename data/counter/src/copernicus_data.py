@@ -381,19 +381,44 @@ class TrapClimateProcessor:
 
     def save_results(self, df: pd.DataFrame, output_prefix: str):
         """
-        Save the processed data to CSV and pickle formats.
+        Save the processed data to compressed CSV (ZIP) and pickle formats.
+
+        The CSV is ZIP-compressed with full float precision (%.10g) and
+        ISO 8601 date formatting, suitable for archival and database publication.
 
         Args:
             df: Processed DataFrame
             output_prefix: Prefix for output filenames
         """
-        csv_file = f"{output_prefix}.csv"
+        csv_file = f"{output_prefix}.csv.zip"
         pkl_file = f"{output_prefix}.pkl"
 
         self.logger.info(f"Saving results to {csv_file} and {pkl_file}")
 
         try:
-            df.to_csv(csv_file, index=False)
+            # Create a copy to avoid mutating the input DataFrame
+            export_df = df.copy()
+
+            # Cast object-typed boolean columns to appropriate types
+            for col in ("keep", "climate_nan"):
+                if col in export_df.columns:
+                    if export_df[col].dtype == object:
+                        # 'keep' is boolean-like, 'climate_nan' is string "yes"/"no"
+                        if col == "keep":
+                            export_df[col] = export_df[col].astype(bool)
+
+            # Derive archive-internal filename
+            archive_name = os.path.basename(f"{output_prefix}.csv")
+
+            export_df.to_csv(
+                csv_file,
+                index=False,
+                compression={"method": "zip", "archive_name": archive_name},
+                float_format="%.10g",
+                date_format="%Y-%m-%d",
+            )
+            self.logger.info(f"Saved compressed CSV to {csv_file}")
+
             df.to_pickle(pkl_file)
             self.logger.info(f"Successfully saved {len(df)} records")
         except Exception as e:
@@ -495,7 +520,7 @@ def main():
     parser.add_argument(
         '-o', '--output',
         default="./output_data/albopictus_with_climate_3m",
-        help="Output filename prefix (default: ../output_data/albopictus_with_climate_3m)"
+        help="Output filename prefix (default: ./output_data/albopictus_with_climate_3m)"
     )
     parser.add_argument(
         '--climate-path',

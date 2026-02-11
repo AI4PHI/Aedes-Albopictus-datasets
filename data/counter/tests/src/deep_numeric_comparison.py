@@ -50,7 +50,12 @@ def deep_compare_dataframes(df1, df2, name1="Script", name2="Notebook", compare_
     
     if df1.shape != df2.shape and not compare_common_only:
         print("❌ Different shapes - enable compare_common_only to compare matching columns")
-        return False
+        return False, [{
+            "column": "<dataframe>",
+            "type": "Shape mismatch",
+            "n_diffs": abs(df1.shape[0] - df2.shape[0]),
+            "details": f"{name1} shape={df1.shape}, {name2} shape={df2.shape}. Re-run with --compare-common to compare overlapping columns."
+        }]
 
     # Get common columns
     common_cols = list(set(df1.columns) & set(df2.columns))
@@ -59,11 +64,24 @@ def deep_compare_dataframes(df1, df2, name1="Script", name2="Notebook", compare_
         print(f"\nComparing {len(common_cols)} common columns...\n")
         df1_compare = df1[common_cols]
         df2_compare = df2[common_cols]
+        
+        # Align on common index to avoid mismatched lengths
+        common_index = df1_compare.index.intersection(df2_compare.index)
+        if len(common_index) < len(df1_compare) or len(common_index) < len(df2_compare):
+            print(f"⚠️  Aligning on common index: {len(common_index)} rows "
+                  f"(File1 has {len(df1_compare)}, File2 has {len(df2_compare)})\n")
+            df1_compare = df1_compare.loc[common_index]
+            df2_compare = df2_compare.loc[common_index]
     else:
         # Column comparison
         if not df1.columns.equals(df2.columns):
             print("❌ Different columns")
-            return False
+            return False, [{
+                "column": "<dataframe>",
+                "type": "Column mismatch",
+                "n_diffs": len(set(df1.columns) ^ set(df2.columns)),
+                "details": "Columns do not match between the two DataFrames."
+            }]
         print("✅ Same shape and columns\n")
         df1_compare = df1
         df2_compare = df2
@@ -395,15 +413,26 @@ def main():
         print(f"{'='*60}")
         
         for diff_info in diff_columns:
-            print(f"\n📊 Column: '{diff_info['column']}'")
-            print(f"   Type: {diff_info['type']}")
-            print(f"   Differences: {diff_info['n_diffs']:,}", end="")
-            
-            if 'n_total' in diff_info:
+            col_name = diff_info.get("column", "<unknown>")
+            diff_type = diff_info.get("type", "<unknown>")
+            n_diffs = diff_info.get("n_diffs", None)
+
+            print(f"\n📊 Column: '{col_name}'")
+            print(f"   Type: {diff_type}")
+            if n_diffs is None:
+                print("   Differences: <unknown>", end="")
+            else:
+                print(f"   Differences: {n_diffs:,}", end="")
+
+            if "n_total" in diff_info and n_diffs is not None:
                 print(f" / {diff_info['n_total']:,} ({diff_info['percent']:.2f}%)")
             else:
                 print()
-            
+
+            # Optional free-form details for non-column diagnostics
+            if diff_info.get("details"):
+                print(f"   Details: {diff_info['details']}")
+
             # Show numeric statistics if available
             if 'abs_diff_mean' in diff_info:
                 print(f"   Absolute Differences:")
