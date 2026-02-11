@@ -102,8 +102,8 @@ def compare_dataframes(df1, df2, label1="OLD", label2="NEW"):
 
 def main():
     # Paths (relative to the tests/ directory)
-    old_file = 'data/albopictus_presence_absence_ecdc_copernicus_2020.zip'
-    new_file = '../data/outputs/ecdc_albopictus_cordex_2020.zip'
+    old_file = './tests/data/albopictus_presence_absence_ecdc_copernicus_2020.zip'
+    new_file = './data/outputs/ecdc_albopictus_cordex_2020.zip'
     
     print("\n" + "="*80)
     print("📊 Comparing CORDEX Results: OLD vs NEW")
