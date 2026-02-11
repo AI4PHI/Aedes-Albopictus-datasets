@@ -1,4 +1,3 @@
-import math
 import numpy as np
 
 
@@ -46,8 +45,9 @@ def aedes_temperature_suitability(monthly_temperatures, species="albopictus"):
     - No minimum requirement for warm development months
     
     For Aedes aegypti:
-    - Same temperature thresholds as albopictus (may need adjustment)
-    - Requires at least 5 months ≥ 10°C for development
+    - Same temperature thresholds as albopictus (conservative placeholder)
+    - No minimum requirement for warm development months (same as albopictus)
+    - May need adjustment with species-specific parameters in future
     """
     temperature_array = np.asarray(monthly_temperatures, dtype=float)
     
@@ -84,81 +84,6 @@ def aedes_temperature_suitability(monthly_temperatures, species="albopictus"):
     # Location is suitable only if all criteria are met
     is_suitable = survives_winter & adequate_annual_warmth & sufficient_development_months
     
-    return is_suitable
-
-import numpy as np
-
-def aedes_temperature_suitability_estimRisk(monthly_temperatures, species="albopictus"):
-    """
-    Estimate habitat suitability for Aedes based on monthly temperature-driven
-    'risk' (mortality vs gonotrophic-cycle length). A location is suitable if
-    at least one month satisfies: 1 / mortality_rate > length_gon_cycle.
-
-    Parameters
-    ----------
-    monthly_temperatures : array-like, shape (n_locations, 12)
-        Monthly mean temperatures in Celsius for n locations.
-    species : {'albopictus', 'aegypti'}, default 'albopictus'
-        Species model controlling temperature-response parameters.
-
-    Returns
-    -------
-    is_suitable : np.ndarray of bool, shape (n_locations,)
-        True if any month is suitable under the mortality/gonotrophic criterion.
-
-    Raises
-    ------
-    ValueError
-        If input shape is not (n_locations, 12) or species is not recognized.
-    """
-    T = np.asarray(monthly_temperatures, dtype=float)
-
-    # Validate shape
-    if T.ndim != 2 or T.shape[1] != 12:
-        raise ValueError("Input must have shape (n_locations, 12) for 12 monthly values")
-
-    if species not in {"albopictus", "aegypti"}:
-        raise ValueError("Unsupported species. Use 'albopictus' or 'aegypti'.")
-
-    # Prepare arrays
-    mortality = np.zeros_like(T, dtype=float)
-
-    with np.errstate(over='ignore', under='ignore', divide='ignore', invalid='ignore'):
-        if species == "albopictus":
-            # Piecewise mortality
-            c1 = T < 15.0
-            c2 = (T >= 15.0) & (T < 26.3)
-            c3 = T >= 26.3
-
-            mortality[c1] = 1.0 / (1.1 + np.exp(-4.04 + 0.576 * T[c1])) + 0.12
-            mortality[c2] = 0.000339 * T[c2]**2 - 0.0189 * T[c2] + 0.336
-            mortality[c3] = 1.0 / (1.065 + np.exp(32.2 - 0.92 * T[c3])) + 0.0747
-
-            # Gonotrophic cycle (days)
-            gon_len = 0.046 * T**2 - 2.77 * T + 45.3
-
-        else:  # 'aegypti'
-            Tk = T + 273.15  # Kelvin
-
-            c1 = T < 22.0
-            c2 = ~c1
-
-            mortality[c1] = 1.0 / (1.22 + np.exp(-3.05 + 0.72 * T[c1])) + 0.196
-            mortality[c2] = 1.0 / (1.14 + np.exp(51.4 - 1.3 * T[c2])) + 0.192
-
-            NumD = np.exp(15725.0 / 1.987 * (1.0 / 298.0 - 1.0 / Tk))
-            DenD = 1.0 + np.exp(1756481.0 / 1.987 * (1.0 / 447.2 - 1.0 / Tk))
-            d = ((0.216 + 0.372) / 2.0) * Tk / 298.0 * NumD / DenD
-            gon_len = 1.0 / d
-
-        # Safety: invalid/zero/negative values -> not suitable for that month
-        invalid = ~np.isfinite(mortality) | ~np.isfinite(gon_len) | (mortality <= 0) | (gon_len <= 0)
-        month_ok = (1.0 / mortality) > gon_len
-        month_ok[invalid] = False
-
-    # A location is suitable if ANY month is suitable
-    is_suitable = month_ok.any(axis=1)
-
     return is_suitable
 
 
