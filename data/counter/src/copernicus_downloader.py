@@ -111,10 +111,50 @@ class CopernicusDownloader:
         return year_dir / filename
 
     def _get_raw_file_path(self, variable: str, year: int) -> Path:
-        """Get the raw downloaded file path."""
+        """Get the raw downloaded file path (explicitly marked as raw)."""
         raw_year_dir = self.raw_dir / str(year)
         raw_year_dir.mkdir(parents=True, exist_ok=True)
-        return raw_year_dir / f"cds_era5_land_{variable}_{year}.nc"
+        # Use a suffix that can never be confused with processed outputs
+        return raw_year_dir / f"cds_era5_land_{variable}_{year}.raw.nc"
+
+    def _is_raw_dataset_for_variable(self, ds: xr.Dataset, variable: str) -> bool:
+        """
+        Return True if ds looks like a RAW ERA5-Land hourly dataset for `variable`.
+        RAW should contain either the expected CDS variable name or the internal short name.
+        """
+        candidates = {variable}
+        if variable in self.internal_mapping:
+            candidates.add(self.internal_mapping[variable])
+
+        # processed-like variables we never want to accept as raw inputs
+        derived_suffixes = ("_min", "_max", "_mean", "_sum")
+        if any(v.endswith(derived_suffixes) for v in ds.data_vars.keys()) and not any(v in ds.data_vars for v in candidates):
+            return False
+
+        return any(v in ds.data_vars for v in candidates)
+
+    def _ensure_valid_raw_file(self, variable: str, year: int, raw_file: Path, force_redownload: bool) -> Path:
+        """
+        Ensure raw_file exists and is truly RAW for `variable`.
+        If not, re-download (or raise if download fails).
+        """
+        if force_redownload or (not raw_file.exists()):
+            return self.download_raw_data(variable, year, overwrite=True)
+
+        # Validate structure/content, not only "opens successfully"
+        try:
+            actual_file = self._extract_zip_if_needed(raw_file)
+            with xr.open_dataset(actual_file, engine="netcdf4") as ds:
+                if not self._is_raw_dataset_for_variable(ds, variable):
+                    print(f"⚠️  Raw file exists but does not look RAW for '{variable}': {actual_file.name}")
+                    print(f"    Variables present: {list(ds.data_vars.keys())}")
+                    print("    Re-downloading raw data...")
+                    return self.download_raw_data(variable, year, overwrite=True)
+        except Exception as e:
+            print(f"⚠️  Raw file exists but failed to open/validate ({e}). Re-downloading...")
+            return self.download_raw_data(variable, year, overwrite=True)
+
+        return raw_file
 
     def _extract_zip_if_needed(self, file_path: Path) -> Path:
         """Extract ZIP file if the downloaded file is a ZIP archive."""
@@ -455,9 +495,25 @@ class CopernicusDownloader:
         if len(ds.data_vars) == 1:
             return list(ds.data_vars.keys())[0]
 
-        # Fallback to first available
-        print(f"Warning: Could not find variable {expected_var}, using {list(ds.data_vars.keys())[0]}")
-        return list(ds.data_vars.keys())[0]
+        # Avoid accidentally selecting already-aggregated stats variables when we expect raw fields.
+        # Example bad fallback: expected '10m_u_component_of_wind' but dataset only has
+        # '10m_u_component_of_wind_min/max/mean' -> recomputing stats becomes semantically wrong.
+        derived_suffixes = ("_min", "_max", "_mean", "_sum")
+        non_derived = [v for v in ds.data_vars.keys() if not v.endswith(derived_suffixes)]
+        if expected_var in self.stats_variables:
+            # If we cannot find a non-derived field for a stats variable, fail loudly.
+            if not non_derived:
+                candidates = list(ds.data_vars.keys())
+                raise ValueError(
+                    f"Dataset does not contain a raw field for '{expected_var}'. "
+                    f"Found only derived variables: {candidates}. "
+                    f"Please point to the RAW ERA5-Land file (hourly) or adjust the pipeline."
+                )
+
+        # Fallback to first available (prefer non-derived if possible)
+        fallback = non_derived[0] if non_derived else list(ds.data_vars.keys())[0]
+        print(f"Warning: Could not find variable {expected_var}, using {fallback}")
+        return fallback
 
     def process_raw_data(self, variable: str, year: int, freq: str = "daily",
                         raw_file: Optional[Path] = None) -> Path:
@@ -504,6 +560,18 @@ class CopernicusDownloader:
             chunks={'latitude': 100, 'longitude': 100}  # Larger chunks for better performance
         )
         
+        # If the dataset is already a processed stats product, abort to avoid recomputing stats-from-stats.
+        # This happens if the input file is not the RAW ERA5-Land hourly file.
+        if variable in self.stats_variables:
+            derived_present = [f"{variable}_min", f"{variable}_max", f"{variable}_mean"]
+            if any(v in ds.data_vars for v in derived_present) and variable not in ds.data_vars:
+                raise ValueError(
+                    f"Input dataset for '{variable}' appears to already contain daily stats "
+                    f"({', '.join([v for v in derived_present if v in ds.data_vars])}). "
+                    f"Refusing to recompute min/max/mean from derived variables. "
+                    f"Use the RAW hourly ERA5-Land download as input."
+                )
+
         internal_var = self.get_internal_variable_name(ds, variable)
         print(f"  ✓ Using internal variable: '{internal_var}'")
 
@@ -577,13 +645,20 @@ class CopernicusDownloader:
         if 'valid_time' in ds_out.coords:
             ds_out = ds_out.rename({'valid_time': 'time'})
 
+        # Close input dataset BEFORE writing to avoid file-handle/permission conflicts
+        ds.close()
+
+        # Remove existing output file to avoid permission denied errors
+        if outfile.exists():
+            print(f"  🗑️  Removing existing output file: {outfile.name}")
+            outfile.unlink()
+
         # Save processed data with compression
         print(f"  💾 Saving to {outfile.name}...")
         encoding = {var: {'zlib': True, 'complevel': 4} for var in ds_out.data_vars}
         ds_out.to_netcdf(outfile, engine='netcdf4', encoding=encoding)
 
-        # Close datasets to free memory
-        ds.close()
+        # Close output dataset to free memory
         ds_out.close()
 
         print(f"✅ Processed data saved: {outfile}")
@@ -619,28 +694,15 @@ class CopernicusDownloader:
             print(f"✅ Processed data already available: {expected_file.name}")
             return expected_file
 
-        # Check if raw file exists
-        if raw_file.exists() and not force_redownload:
-            print(f"✅ Raw data already downloaded: {raw_file.name}")
-            if download_only:
-                return raw_file
-            # Process existing raw data
-            print(f"🔄 Processing existing raw data...")
-            processed_file = self.process_raw_data(variable, year, freq, raw_file)
-            return processed_file
-
-        # Need to download
-        print(f"📥 Data not found for {variable} {year}. Downloading...")
-        raw_file = self.download_raw_data(variable, year, overwrite=force_redownload)
+        # Always ensure the raw file is truly raw (and re-download if not)
+        raw_file = self._ensure_valid_raw_file(variable, year, raw_file, force_redownload)
 
         if download_only:
-            print(f"✅ Download complete (processing skipped): {raw_file.name}")
+            print(f"✅ Raw data ready: {raw_file.name}")
             return raw_file
 
-        # Process the downloaded data
-        print(f"🔄 Processing downloaded data...")
-        processed_file = self.process_raw_data(variable, year, freq, raw_file)
-        return processed_file
+        print(f"🔄 Processing raw data...")
+        return self.process_raw_data(variable, year, freq, raw_file)
 
     def download_all_required_data(self, variables: List[str], years: List[int], 
                                    force_redownload: bool = False) -> Dict[str, Dict[int, Path]]:

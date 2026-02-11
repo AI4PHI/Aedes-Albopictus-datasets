@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Optional
 import logging
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -46,6 +47,7 @@ class AlbopictusDataProcessor:
         self.occurrence_data = None
         self.albopictus_data = None
         self.filtered_data = None
+        self.summary = {}  # collected run statistics for README/reporting
 
     def load_data(self) -> None:
         """Load event and occurrence data from CSV files."""
@@ -62,6 +64,40 @@ class AlbopictusDataProcessor:
 
         logger.info(f"Loaded {len(self.occurrence_data)} occurrence records")
 
+        self.summary["raw"] = {
+            "occurrence_records_total": int(len(self.occurrence_data)),
+            "event_records_total": int(len(self.event_data)) if self.event_data is not None else None,
+            "unique_scientific_names": int(self.occurrence_data["scientificName"].nunique(dropna=True)),
+            "top_scientific_names": (
+                self.occurrence_data["scientificName"]
+                .value_counts(dropna=False)
+                .head(15)
+                .to_dict()
+            ),
+            "life_stage_counts_raw": (
+                self.occurrence_data.get("lifeStage", pd.Series(dtype="object"))
+                .value_counts(dropna=False)
+                .to_dict()
+            ),
+            "zeros_total_raw": int((self.occurrence_data.get("individualCount") == 0).sum())
+            if "individualCount" in self.occurrence_data.columns else None,
+        }
+
+        # Cross-tab: counts per species per lifeStage (top N species to keep file small)
+        if "scientificName" in self.occurrence_data.columns and "lifeStage" in self.occurrence_data.columns:
+            top_species = (
+                self.occurrence_data["scientificName"]
+                .value_counts(dropna=False)
+                .head(15)
+                .index
+            )
+            ct = pd.crosstab(
+                self.occurrence_data.loc[self.occurrence_data["scientificName"].isin(top_species), "scientificName"],
+                self.occurrence_data.loc[self.occurrence_data["scientificName"].isin(top_species), "lifeStage"],
+                dropna=False
+            )
+            self.summary["raw"]["life_stage_by_species_top15"] = ct.to_dict()
+
     def extract_albopictus_data(self) -> None:
         """Extract Aedes albopictus data including zero counts."""
         logger.info("Extracting Aedes albopictus data...")
@@ -77,7 +113,18 @@ class AlbopictusDataProcessor:
         # Include zero count records (negative observations are important)
         zeros = self.occurrence_data[self.occurrence_data["individualCount"] == 0]
 
+        self.summary["extraction"] = {
+            "albopictus_records": int(len(albopictus)),
+            "zeros_records_all_species": int(len(zeros)),
+            "zeros_records_albopictus": int((albopictus["individualCount"] == 0).sum()) if "individualCount" in albopictus.columns else None,
+            "zeros_records_non_albopictus": int(len(zeros) - int((self.occurrence_data[
+                self.occurrence_data["scientificName"] == "Aedes albopictus (Skuse, 1894)"
+            ]["individualCount"] == 0).sum())) if "individualCount" in self.occurrence_data.columns else None,
+            "life_stage_counts_albopictus": albopictus.get("lifeStage", pd.Series(dtype="object")).value_counts(dropna=False).to_dict(),
+        }
+
         self.albopictus_data = pd.concat([albopictus, zeros], ignore_index=True).copy()
+        self.summary["extraction"]["post_concat_total_records"] = int(len(self.albopictus_data))
         logger.info(f"Extracted {len(self.albopictus_data)} albopictus records (including zeros)")
 
     def clean_coordinates(self) -> None:
@@ -87,7 +134,8 @@ class AlbopictusDataProcessor:
         if self.albopictus_data is None:
             raise ValueError("Albopictus data not extracted. Call extract_albopictus_data() first.")
 
-        # Replicate the notebook's exact coordinate cleaning logic
+        coord_before = self.albopictus_data[["decimalLatitude", "decimalLongitude"]].copy()
+
         # Remove degree symbols and whitespace
         self.albopictus_data['decimalLatitude'] = (
             self.albopictus_data['decimalLatitude']
@@ -101,6 +149,12 @@ class AlbopictusDataProcessor:
             .str.replace('°', '', regex=False)
             .str.strip()
         )
+
+        # Count quick “fix indicators”
+        deg_sym_lat = coord_before["decimalLatitude"].astype(str).str.contains("°", na=False).sum()
+        deg_sym_lon = coord_before["decimalLongitude"].astype(str).str.contains("°", na=False).sum()
+        comma_lat = coord_before["decimalLatitude"].astype(str).str.contains(",", na=False).sum()
+        comma_lon = coord_before["decimalLongitude"].astype(str).str.contains(",", na=False).sum()
 
         # Create a temporary copy (replicating notebook's albopictus_ variable)
         albopictus_temp = self.albopictus_data.copy()
@@ -121,22 +175,28 @@ class AlbopictusDataProcessor:
             albopictus_temp['decimalLongitude'], errors='coerce'
         )
 
-        # This replicates the notebook's redundant conversion lines:
-        # albopictus_['decimalLatitude'] = pd.to_numeric(albopictus['decimalLatitude'], errors='coerce')
-        # albopictus_['decimalLongitude'] = pd.to_numeric(albopictus['decimalLongitude'], errors='coerce')
-        # Note: These lines in the notebook use the original 'albopictus' instead of 'albopictus_'
-        # This creates a subtle difference that may cause the coordinate issue
-        albopictus_temp['decimalLatitude'] = pd.to_numeric(
-            self.albopictus_data['decimalLatitude'], errors='coerce'
-        )
-        albopictus_temp['decimalLongitude'] = pd.to_numeric(
-            self.albopictus_data['decimalLongitude'], errors='coerce'
-        )
+        # NOTE: remove the notebook’s redundant overwrite that undoes comma fixing.
+        albopictus_temp["decimalLatitude"] = pd.to_numeric(albopictus_temp["decimalLatitude"], errors="coerce")
+        albopictus_temp["decimalLongitude"] = pd.to_numeric(albopictus_temp["decimalLongitude"], errors="coerce")
 
         # Remove records with missing coordinates
         initial_count = len(albopictus_temp)
+        nan_count = int(albopictus_temp[["decimalLatitude", "decimalLongitude"]].isna().any(axis=1).sum())
+
         self.albopictus_data = albopictus_temp.dropna(subset=['decimalLatitude', 'decimalLongitude'])
-        removed_count = initial_count - len(self.albopictus_data)
+        kept_count = int(len(self.albopictus_data))
+        removed_count = initial_count - kept_count
+
+        self.summary["coordinates"] = {
+            "records_before": int(initial_count),
+            "degree_symbol_lat_rows": int(deg_sym_lat),
+            "degree_symbol_lon_rows": int(deg_sym_lon),
+            "comma_decimal_lat_rows": int(comma_lat),
+            "comma_decimal_lon_rows": int(comma_lon),
+            "rows_with_nan_coords_after_parse": int(nan_count),
+            "records_dropped_missing_coords": int(removed_count),
+            "records_after": int(kept_count),
+        }
 
         logger.info(f"Removed {removed_count} records due to missing coordinates")
 
@@ -148,8 +208,19 @@ class AlbopictusDataProcessor:
             ['decimalLatitude', 'decimalLongitude']
         ).ngroup()
 
-        n_traps = len(self.albopictus_data['id_trap'].unique())
-        n_measures = len(self.albopictus_data)
+        n_traps = int(self.albopictus_data['id_trap'].nunique())
+        n_measures = int(len(self.albopictus_data))
+
+        # Records-per-trap quick stats
+        per_trap = self.albopictus_data.groupby("id_trap").size()
+        self.summary["traps"] = {
+            "trap_id_definition": "ngroup() over exact (decimalLatitude, decimalLongitude) pairs",
+            "unique_traps": n_traps,
+            "total_measures": n_measures,
+            "measures_per_trap_min": int(per_trap.min()) if len(per_trap) else 0,
+            "measures_per_trap_median": float(per_trap.median()) if len(per_trap) else 0.0,
+            "measures_per_trap_max": int(per_trap.max()) if len(per_trap) else 0,
+        }
 
         logger.info(f"Created {n_traps} unique traps with {n_measures} total measures")
 
@@ -182,26 +253,18 @@ class AlbopictusDataProcessor:
             self.albopictus_data['end_date'] - self.albopictus_data['start_date']
         ).dt.days
 
-        # Fix zero time differences - REPLICATE THE NOTEBOOK'S BUGGY BEHAVIOR
-        # The notebook has this problematic line: albopictus[albopictus['time_diff'] == 0] = 1.
-        # This corrupts entire rows by setting ALL columns to 1.0 where time_diff == 0
+        # Fix zero time differences SAFELY: only time_diff, not entire rows
         zero_time_diff_mask = self.albopictus_data['time_diff'] == 0
-        zero_time_diff_count = zero_time_diff_mask.sum()
+        zero_time_diff_count = int(zero_time_diff_mask.sum())
         if zero_time_diff_count > 0:
-            logger.info(f"Fixed {zero_time_diff_count} records with zero time difference")
+            self.albopictus_data.loc[zero_time_diff_mask, 'time_diff'] = 1
+        self.summary["temporal"] = {
+            "zero_time_diff_fixed_to_1_day": int(zero_time_diff_count),
+            "time_diff_min": int(self.albopictus_data["time_diff"].min()) if "time_diff" in self.albopictus_data.columns else None,
+            "time_diff_max": int(self.albopictus_data["time_diff"].max()) if "time_diff" in self.albopictus_data.columns else None,
+        }
 
-            # Replicate the notebook's behavior: set entire rows to 1.0
-            # This will corrupt columns like lifeStage, making them 1.0 instead of strings
-            try:
-                # Use pandas' assignment with warning suppression behavior
-                import warnings
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    # This mimics the notebook's problematic line
-                    self.albopictus_data.loc[zero_time_diff_mask] = 1.0
-            except:
-                # If that fails, just set time_diff column
-                self.albopictus_data.loc[zero_time_diff_mask, 'time_diff'] = 1
+        logger.info(f"Fixed {zero_time_diff_count} records with zero time difference")
 
     def validate_sampling_effort(self) -> None:
         """Validate sampling effort against calculated time differences."""
@@ -227,7 +290,13 @@ class AlbopictusDataProcessor:
         # The notebook's keep column becomes object dtype due to the row corruption
         self.albopictus_data['keep'] = keep_condition.astype('object')
 
-        keep_stats = self.albopictus_data['keep'].value_counts()
+        keep_stats = self.albopictus_data['keep'].value_counts(dropna=False)
+        self.summary["sampling_effort_validation"] = {
+            "kept_true": int(keep_stats.get(True, 0)),
+            "kept_false": int(keep_stats.get(False, 0)),
+            "kept_nan": int(keep_stats.get(np.nan, 0)) if np.nan in keep_stats.index else 0,
+        }
+
         logger.info(f"Validation results - Keep: {keep_stats.get(True, 0)}, "
                    f"Discard: {keep_stats.get(False, 0)}")
 
@@ -245,22 +314,47 @@ class AlbopictusDataProcessor:
 
         # Filter by life stages
         valid_life_stages = ["Egg", "Adult", "Larva"]
-        initial_count = len(self.albopictus_data)
+        initial_count = int(len(self.albopictus_data))
+
+        life_stage_counts_before = (
+            self.albopictus_data.get("lifeStage", pd.Series(dtype="object"))
+            .value_counts(dropna=False)
+            .to_dict()
+        )
 
         self.filtered_data = self.albopictus_data[
             self.albopictus_data["lifeStage"].isin(valid_life_stages)
         ].copy()
 
+        life_stage_counts_after = (
+            self.filtered_data.get("lifeStage", pd.Series(dtype="object"))
+            .value_counts(dropna=False)
+            .to_dict()
+        )
+
         life_stage_removed = initial_count - len(self.filtered_data)
         logger.info(f"Removed {life_stage_removed} records due to invalid life stages")
 
         # Filter by validation flag
-        validation_initial = len(self.filtered_data)
+        validation_initial = int(len(self.filtered_data))
         self.filtered_data = self.filtered_data[self.filtered_data["keep"] == True]
         validation_removed = validation_initial - len(self.filtered_data)
 
         logger.info(f"Removed {validation_removed} records due to validation failures")
         logger.info(f"Final dataset: {len(self.filtered_data)} records")
+
+        final_count = int(len(self.filtered_data))
+
+        self.summary["final_filtering"] = {
+            "records_before_filtering": int(initial_count),
+            "life_stage_counts_before": life_stage_counts_before,
+            "records_after_life_stage_filter": int(validation_initial),
+            "life_stage_counts_after": life_stage_counts_after,
+            "records_removed_validation_fail": int(validation_removed),
+            "final_records": int(final_count),
+            "final_unique_traps": int(self.filtered_data["id_trap"].nunique()) if self.filtered_data is not None else None,
+            "final_zeros": int((self.filtered_data["individualCount"] == 0).sum()) if self.filtered_data is not None and "individualCount" in self.filtered_data.columns else None,
+        }
 
     def analyze_duplicates(self) -> None:
         """Analyze duplicate entries in the dataset."""
@@ -326,20 +420,25 @@ class AlbopictusDataProcessor:
             plt.savefig(save_path)
         plt.show()
 
-    def save_data(self, csv_path: str = "albopictus.csv",
-                  pickle_path: str = "albopictus.pkl", save_dir: str = "../output_data") -> None:
+    def save_data(self, csv_path: str = "albopictus.csv.zip",
+                  pickle_path: str = "albopictus.pkl", save_dir: str = "../output_data",
+                  stats_dir: str = "../output_stats") -> None:
         """
-        Save the processed data to CSV and pickle formats.
+        Save the processed data to compressed CSV (ZIP) and pickle formats.
         
         Args:
-            csv_path: Filename for CSV output (default: albopictus.csv)
+            csv_path: Filename for compressed CSV output (default: albopictus.csv.zip)
             pickle_path: Filename for pickle output (default: albopictus.pkl)
             save_dir: Directory for saving outputs (default: ../output_data relative to src/)
+            stats_dir: Directory for saving stats JSON (default: ../output_stats relative to src/)
         """
         # Resolve path relative to this script's location
         script_dir = Path(__file__).parent
         save_dir_path = (script_dir / save_dir).resolve()
         save_dir_path.mkdir(parents=True, exist_ok=True)
+        
+        stats_dir_path = (script_dir / stats_dir).resolve()
+        stats_dir_path.mkdir(parents=True, exist_ok=True)
         
         csv_full_path = save_dir_path / csv_path
         pickle_full_path = save_dir_path / pickle_path
@@ -351,6 +450,15 @@ class AlbopictusDataProcessor:
 
         self.filtered_data.to_csv(csv_full_path, index=False)
         self.filtered_data.to_pickle(pickle_full_path)
+
+        # Save run summary to the stats directory (for README / provenance)
+        summary_path = stats_dir_path / "albopictus_summary.json"
+        try:
+            with open(summary_path, "w", encoding="utf-8") as f:
+                json.dump(self.summary, f, indent=2, default=str)
+            logger.info(f"Saved processing summary to {summary_path}")
+        except Exception as e:
+            logger.warning(f"Failed to save summary JSON: {e}")
 
         logger.info("Data saved successfully")
 
