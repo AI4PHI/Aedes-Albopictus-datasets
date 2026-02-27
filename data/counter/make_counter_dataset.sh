@@ -26,4 +26,4 @@ fi
 
 python src/copernicus_data.py --enable-downloads ${FORCE}
 
-# Result: albopictus_with_climate_3m.csv.zip and albopictus_with_climate_3m.pkl (final database)
+# Result: AIMSurv_albopictus_2020_era5_land.csv.zip and AIMSurv_albopictus_2020_era5_land.pkl (final database)

@@ -519,8 +519,8 @@ def main():
     )
     parser.add_argument(
         '-o', '--output',
-        default="./output_data/albopictus_with_climate_3m",
-        help="Output filename prefix (default: ./output_data/albopictus_with_climate_3m)"
+        default="./output_data/AIMSurv_albopictus_2020_era5_land",
+        help="Output filename prefix (default: ./output_data/AIMSurv_albopictus_2020_era5_land)"
     )
     parser.add_argument(
         '--climate-path',

@@ -308,6 +308,87 @@ class AlbopictusDataProcessor:
             7 * self.albopictus_data['individualCount'] / self.albopictus_data['time_diff']
         )
 
+    def compute_previous_weekly_rates_by_effort(self, delta_days: int = 1) -> None:
+        """
+        For each row in albopictus_data, find the 1-period-ago and 2-periods-ago
+        weeklyRate measurements (within +/- delta_days of the implied start date),
+        and store them in new columns 'prev_weeklyRate' and 'prev2_weeklyRate'.
+        If multiple candidates are found, takes their mean.
+        """
+        logger.info("Computing previous weekly rates (prev_weeklyRate, prev2_weeklyRate)...")
+
+        df = self.albopictus_data
+
+        # Ensure correct dtypes
+        df["end_date"] = pd.to_datetime(df["end_date"], errors="coerce")
+        df["samplingEffort Days"] = pd.to_numeric(df["samplingEffort Days"], errors="coerce")
+
+        df["prev_weeklyRate"] = np.nan
+        df["prev2_weeklyRate"] = np.nan
+
+        multiple_prev = 0
+        multiple_prev2 = 0
+
+        for i, row in df.iterrows():
+            trap = row["id_trap"]
+            end = row["end_date"]
+            eff = row["samplingEffort Days"]
+
+            # Skip rows with missing values
+            if pd.isna(trap) or pd.isna(end) or pd.isna(eff):
+                continue
+
+            start = end - pd.Timedelta(days=eff)
+
+            # 1-period-ago window
+            w0 = start - pd.Timedelta(days=delta_days)
+            w1 = start + pd.Timedelta(days=delta_days)
+            prev_rows = df[
+                (df["id_trap"] == trap) &
+                (df.index != i) &
+                (df["end_date"] > w0) &
+                (df["end_date"] < w1)
+            ]["weeklyRate"]
+
+            if len(prev_rows) == 1:
+                df.at[i, "prev_weeklyRate"] = prev_rows.iloc[0]
+            elif len(prev_rows) > 1:
+                df.at[i, "prev_weeklyRate"] = prev_rows.mean()
+                multiple_prev += 1
+
+            # 2-periods-ago window (end_date - 2*eff, ±delta_days)
+            prev2_center = end - pd.Timedelta(days=2 * eff)
+            w0 = prev2_center - pd.Timedelta(days=delta_days)
+            w1 = prev2_center + pd.Timedelta(days=delta_days)
+            prev2_rows = df[
+                (df["id_trap"] == trap) &
+                (df.index != i) &
+                (df["end_date"] > w0) &
+                (df["end_date"] < w1)
+            ]["weeklyRate"]
+
+            if len(prev2_rows) == 1:
+                df.at[i, "prev2_weeklyRate"] = prev2_rows.iloc[0]
+            elif len(prev2_rows) > 1:
+                df.at[i, "prev2_weeklyRate"] = prev2_rows.mean()
+                multiple_prev2 += 1
+
+        total = len(df)
+        found1 = df["prev_weeklyRate"].notna().sum()
+        miss1 = df["prev_weeklyRate"].isna().sum()
+        found2 = df["prev2_weeklyRate"].notna().sum()
+        miss2 = df["prev2_weeklyRate"].isna().sum()
+
+        logger.info(f"Total rows:                                  {total}")
+        logger.info(f"Entries with prev_weeklyRate found:          {found1}")
+        logger.info(f"Entries with prev_weeklyRate missing:        {miss1}")
+        logger.info(f"Used mean for >1 prev  candidates:           {multiple_prev}")
+        logger.info(f"Entries with prev2_weeklyRate found:         {found2}")
+        logger.info(f"Entries with prev2_weeklyRate missing:       {miss2}")
+        logger.info(f"Used mean for >1 prev2 candidates:           {multiple_prev2}")
+
+        self.albopictus_data = df
+
     def filter_data(self) -> None:
         """Apply final filters to the data."""
         logger.info("Applying final filters...")
@@ -499,6 +580,7 @@ class AlbopictusDataProcessor:
             self.process_temporal_data()
             self.validate_sampling_effort()
             self.calculate_weekly_rates()
+            self.compute_previous_weekly_rates_by_effort(delta_days=3)
             self.filter_data()
             self.analyze_duplicates()
 
