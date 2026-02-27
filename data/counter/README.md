@@ -12,8 +12,8 @@ Each row in the output represents a single sampling event at a mosquito trap —
 
 | File | Format | Description |
 |------|--------|-------------|
-| `output_data/albopictus_with_climate_3m.csv.zip` | Compressed CSV | **Final dataset** — trap observations + climate variables |
-| `output_data/albopictus_with_climate_3m.pkl` | Python pickle | Same data, preserving numpy arrays for direct use in Python |
+| `output_data/AIMSurv_albopictus_2020_era5_land.csv.zip` | Compressed CSV | **Final dataset** — trap observations + climate variables |
+| `output_data/AIMSurv_albopictus_2020_era5_land.pkl` | Python pickle | Same data, preserving numpy arrays for direct use in Python |
 | `output_data/albopictus.csv.zip` | Compressed CSV | Intermediate — cleaned trap data before climate linkage |
 | `output_data/albopictus.pkl` | Python pickle | Same intermediate data |
 | `output_stats/albopictus_summary.json` | JSON | Pipeline diagnostics and QA counts |
@@ -57,8 +57,8 @@ counter/
 ├── output_data/                         # ← created datasets live here
 │   ├── albopictus.csv.zip
 │   ├── albopictus.pkl
-│   ├── albopictus_with_climate_3m.csv.zip
-│   └── albopictus_with_climate_3m.pkl
+│   ├── AIMSurv_albopictus_2020_era5_land.csv.zip
+│   └── AIMSurv_albopictus_2020_era5_land.pkl
 └── output_stats/
     ├── albopictus_summary.json
     └── plots/
@@ -76,7 +76,7 @@ ERA5-Land (CDS) ──► copernicus_downloader.py ──┐
                                      copernicus_data.py
                                                │
                                                ▼
-                              albopictus_with_climate_3m.csv.zip / .pkl
+                              AIMSurv_albopictus_2020_era5_land.csv.zip / .pkl
 ```
 
 ### Step 1 — Surveillance data processing (`src/albopictus.py`)
@@ -112,7 +112,7 @@ Downloads are chunked by month, merged per year, subset to a European domain (25
 
 This produces 16 climate feature columns per observation (daily vectors) plus their monthly aggregates.
 
-**Outputs:** `output_data/albopictus_with_climate_3m.csv.zip`, `output_data/albopictus_with_climate_3m.pkl`
+**Outputs:** `output_data/AIMSurv_albopictus_2020_era5_land.csv.zip`, `output_data/AIMSurv_albopictus_2020_era5_land.pkl`
 
 ### Step 3 — Exploratory plots (`src/plot_stats.py`)
 
