@@ -159,6 +159,23 @@ Implemented in `src/aedes_suitability.py :: aedes_precipitation_suitability()`.
 
 A location passes if `annual_precip > 200 mm`.
 
+### Presence but Not Suitable Analysis
+
+The pipeline includes a diagnostic step that identifies and maps grid points labelled as **present/established** by ECDC but flagged as **climatically unsuitable** by the QC filters. These "conflict" points typically correspond to climatically extreme micro-locations (e.g., high-altitude areas) within NUTS-3 polygons that are labelled as present at the regional level.
+
+**Generated outputs:**
+
+| File | Description |
+|------|-------------|
+| `data/img/presence_not_suitable_map_{source}_{year}.png` | Map of all present points coloured green (suitable) vs red (not suitable) |
+| `data/img/presence_not_suitable_reasons_{source}_{year}.png` | Map of conflict points coloured by which filter fails (temperature / precipitation / both) |
+
+**Console output** includes:
+- Count and percentage of present points that fail suitability filters
+- Breakdown by failing criterion (temperature, precipitation, or both)
+
+This diagnostic helps quantify the labelling noise introduced by polygon-to-grid downscaling and supports decisions about whether to exclude these points from ML training sets.
+
 ### Recommended Usage
 
 ```python

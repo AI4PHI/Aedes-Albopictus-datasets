@@ -222,7 +222,7 @@ def calculate_suitability(gdf_merged, year, climate_source='cordex'):
 def create_suitability_plots(df, year, climate_source='cordex'):
     """Create suitability analysis plots"""
     # Count plots
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    fig, axes = plt.subplots(1, 4, figsize=(20, 5))
     
     sns.countplot(x='Suitable', data=df, ax=axes[0], palette='Set2')
     axes[0].set_title(f'Overall Suitability - {climate_source.upper()}')
@@ -232,6 +232,17 @@ def create_suitability_plots(df, year, climate_source='cordex'):
     
     sns.countplot(x='Precipitation Suitable', data=df, ax=axes[2], palette='Blues')
     axes[2].set_title(f'Precipitation Suitability - {climate_source.upper()}')
+    
+    # New: Presence but Not Suitable count
+    df_present = df[df['presence_numeric'] == 1]
+    df_present_not_suitable = df_present[df_present['Suitable'] == False]
+    counts = pd.DataFrame({
+        'Category': ['Present & Suitable', 'Present & Not Suitable'],
+        'Count': [len(df_present) - len(df_present_not_suitable), len(df_present_not_suitable)]
+    })
+    sns.barplot(x='Category', y='Count', data=counts, ax=axes[3], palette='OrRd')
+    axes[3].set_title(f'Present: Suitable vs Not - {climate_source.upper()}')
+    axes[3].tick_params(axis='x', rotation=20)
     
     plt.tight_layout()
     plt.savefig(f"data/img/suitability_counts_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
@@ -419,6 +430,126 @@ def save_results_to_database(df, year, climate_source='cordex', output_dir='./da
     
     return compressed_path
 
+def analyze_presence_not_suitable(df, year, climate_source='cordex'):
+    """
+    Analyze and map grid points labelled as present/established by ECDC
+    but flagged as climatically unsuitable by the QC filters.
+    
+    These points highlight potential labelling artefacts caused by 
+    spatial heterogeneity within NUTS-3 surveillance polygons (e.g., 
+    mountain tops within a polygon that is labelled as 'present').
+    
+    Parameters:
+        df: GeoDataFrame with suitability flags and presence_numeric
+        year: Analysis year
+        climate_source: 'cordex' or 'era5_land'
+        
+    Returns:
+        df_conflict: GeoDataFrame of conflicting points
+    """
+    # Select present/established points that are not suitable
+    mask_present = df['presence_numeric'] == 1
+    mask_not_suitable = df['Suitable'] == False
+    df_conflict = df[mask_present & mask_not_suitable].copy()
+    
+    n_present = mask_present.sum()
+    n_conflict = len(df_conflict)
+    pct = (n_conflict / n_present * 100) if n_present > 0 else 0.0
+    
+    print(f"\n🔍 Presence vs Suitability Conflict Analysis ({climate_source.upper()}):")
+    print(f"   Total present/established points: {n_present}")
+    print(f"   Present but NOT suitable:         {n_conflict} ({pct:.1f}%)")
+    
+    if n_conflict > 0:
+        # Break down by which filter fails
+        mask_temp_fail = df[mask_present]['Temperature Suitable'] == False
+        mask_precip_fail = df[mask_present]['Precipitation Suitable'] == False
+        mask_both_fail = mask_temp_fail & mask_precip_fail
+        
+        print(f"   - Temperature filter fails:       {mask_temp_fail.sum()}")
+        print(f"   - Precipitation filter fails:      {mask_precip_fail.sum()}")
+        print(f"   - Both filters fail:               {mask_both_fail.sum()}")
+        
+        # Create conflict category column for mapping
+        df_present = df[mask_present].copy()
+        df_present['suitability_status'] = 'Present & Suitable'
+        df_present.loc[mask_not_suitable[mask_present].values, 'suitability_status'] = 'Present & Not Suitable'
+        
+        # --- Map 1: Presence points coloured by suitability status ---
+        df_present_web = df_present.to_crs(epsg=3857)
+        
+        fig, ax = plt.subplots(1, 1, figsize=(12, 9))
+        
+        # Plot suitable present points first (green, small)
+        mask_ok = df_present_web['suitability_status'] == 'Present & Suitable'
+        df_present_web[mask_ok].plot(
+            ax=ax, color='#2ca02c', markersize=1, alpha=0.5, 
+            label='Present & Suitable', zorder=2
+        )
+        # Plot conflicting points on top (red, larger)
+        df_present_web[~mask_ok].plot(
+            ax=ax, color='#d62728', markersize=3, alpha=0.8,
+            label='Present & Not Suitable', zorder=3
+        )
+        
+        ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_present_web.crs, zoom=5)
+        ax.legend(loc='lower left', fontsize=10, markerscale=5)
+        ax.set_title(
+            f"ECDC Present Points: Suitable vs Not Suitable\n"
+            f"{climate_source.upper()} ({year}) — {n_conflict} conflicts out of {n_present} ({pct:.1f}%)",
+            fontsize=12
+        )
+        ax.set_axis_off()
+        plt.savefig(
+            f"data/img/presence_not_suitable_map_{climate_source}_{year}.png",
+            dpi=150, bbox_inches='tight'
+        )
+        plt.close()
+        
+        # --- Map 2: Conflict points coloured by failing filter ---
+        df_conflict_detail = df_conflict.copy()
+        conditions = [
+            (~df_conflict_detail['Temperature Suitable']) & (~df_conflict_detail['Precipitation Suitable']),
+            ~df_conflict_detail['Temperature Suitable'],
+            ~df_conflict_detail['Precipitation Suitable'],
+        ]
+        choices = ['Both fail', 'Temperature fails', 'Precipitation fails']
+        df_conflict_detail['failure_reason'] = np.select(conditions, choices, default='Unknown')
+        
+        df_conflict_web = df_conflict_detail.to_crs(epsg=3857)
+        
+        color_map = {
+            'Temperature fails': '#d62728',
+            'Precipitation fails': '#1f77b4',
+            'Both fail': '#7f007f',
+        }
+        
+        fig, ax = plt.subplots(1, 1, figsize=(12, 9))
+        for reason, color in color_map.items():
+            subset = df_conflict_web[df_conflict_web['failure_reason'] == reason]
+            if len(subset) > 0:
+                subset.plot(ax=ax, color=color, markersize=3, alpha=0.8, label=reason, zorder=3)
+        
+        ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_conflict_web.crs, zoom=5)
+        ax.legend(loc='lower left', fontsize=10, markerscale=5)
+        ax.set_title(
+            f"Present but Not Suitable — Failure Reasons\n"
+            f"{climate_source.upper()} ({year}) — {n_conflict} points",
+            fontsize=12
+        )
+        ax.set_axis_off()
+        plt.savefig(
+            f"data/img/presence_not_suitable_reasons_{climate_source}_{year}.png",
+            dpi=150, bbox_inches='tight'
+        )
+        plt.close()
+        
+        print(f"   📊 Maps saved to data/img/presence_not_suitable_*_{climate_source}_{year}.png")
+    else:
+        print("   ✅ No conflicts found — all present points are climatically suitable.")
+    
+    return df_conflict
+
 def main():
     """Main execution function"""
     parser = argparse.ArgumentParser(description='Pair ECDC and Copernicus data for Aedes albopictus analysis')
@@ -468,6 +599,11 @@ def main():
     print("\n" + "="*50)
     print("Calculating suitability...")
     df_with_suitability = calculate_suitability(gdf_merged, year, climate_source=climate_source)
+    
+    # Analyze presence-but-not-suitable conflicts
+    print("\n" + "="*50)
+    print("Analyzing presence vs suitability conflicts...")
+    df_conflicts = analyze_presence_not_suitable(df_with_suitability, year, climate_source=climate_source)
     
     # Filter for European data
     print("\n" + "="*50)
