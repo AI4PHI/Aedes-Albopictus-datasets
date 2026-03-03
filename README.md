@@ -1,4 +1,4 @@
-# AIedes_data
+# AIedes Albopictus Datasets
 
 Code and pipelines for constructing the harmonised European surveillance–climate datasets for *Aedes albopictus* described in the accompanying paper:
 
