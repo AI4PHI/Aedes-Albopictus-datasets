@@ -69,13 +69,57 @@ bash make_counter_dataset.sh
 
 See [`data/counter/README.md`](data/counter/README.md) for full documentation.
 
-### Prerequisites
+## Installation
+
+### Method 1: Using pip
 
 ```bash
-pip install pandas numpy xarray netCDF4 matplotlib tqdm cdsapi seaborn geopandas fiona
+# Clone the repository
+git clone https://github.com/your-org/AIedes_data.git
+cd AIedes_data
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-Climate downloads from the Copernicus CDS require API credentials — see the individual READMEs for setup instructions.
+### Method 2: Using conda
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/AIedes_data.git
+cd AIedes_data
+
+# Create and activate environment
+conda env create -f environment.yml
+conda activate aiedes-data
+```
+
+### Method 3: Using existing climate_env (recommended for maintainers)
+
+If you already have the `climate_env` environment set up:
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/AIedes_data.git
+cd AIedes_data
+
+# Activate existing environment
+conda activate climate_env
+# All dependencies are already satisfied!
+```
+
+### Development Setup
+
+For development work (includes testing and code quality tools):
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+### Prerequisites
+
+- **Python**: ≥3.12 (tested with 3.12.9 in climate_env)
+- **Copernicus CDS API**: Climate downloads require API credentials — see the individual READMEs for setup instructions.
 
 ## Data Sources
 
