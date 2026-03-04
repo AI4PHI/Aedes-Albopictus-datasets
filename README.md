@@ -3,7 +3,7 @@
 Code and pipelines for constructing the harmonised European surveillance–climate datasets for *Aedes albopictus* described in the accompanying paper:
 
 > **Harmonized European surveillance–climate datasets for *Aedes albopictus***
-> Biazzo I., Orfei L., Schuh L., Consoli S., Stilianakis N. I., Markov P. V.
+> Biazzo I., Orfei L., Consoli S., Schuh L., Markov P. V.
 > European Commission, Joint Research Centre (JRC), Ispra, Italy
 
 ## Purpose
