@@ -1,0 +1,27 @@
+# Compatible with climate_env environment (Python 3.12.9)
+# Based on versions in existing climate_env conda environment
+
+# Core data processing libraries
+pandas>=2.2.0
+numpy>=2.1.0
+xarray>=2024.1.0
+
+# Geospatial data processing
+geopandas>=1.0.0
+fiona>=1.10.0
+contextily>=1.6.0
+
+# Climate data access
+netCDF4>=1.7.0
+cdsapi>=0.7.0
+
+# Visualization and plotting
+matplotlib>=3.10.0
+seaborn>=0.13.0
+
+# Progress bars and utilities
+tqdm>=4.67.0
+
+# Optional: for improved performance and additional functionality
+scipy>=1.15.0
+scikit-learn>=1.6.0

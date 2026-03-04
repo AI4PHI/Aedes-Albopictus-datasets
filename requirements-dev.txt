@@ -1,0 +1,15 @@
+# Development and testing dependencies
+-r requirements.txt
+
+# Testing
+pytest>=6.0.0
+pytest-cov>=3.0.0
+
+# Code quality
+flake8>=4.0.0
+black>=22.0.0
+isort>=5.0.0
+
+# Jupyter notebooks (if used for analysis)
+jupyter>=1.0.0
+ipykernel>=6.0.0
