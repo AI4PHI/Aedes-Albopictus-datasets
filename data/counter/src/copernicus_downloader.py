@@ -7,6 +7,7 @@ Downloads and processes ERA5-Land data with proper formatting for trap data anal
 import os
 import time
 import zipfile
+from datetime import date
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -117,6 +118,24 @@ class CopernicusDownloader:
         # Use a suffix that can never be confused with processed outputs
         return raw_year_dir / f"cds_era5_land_{variable}_{year}.raw.nc"
 
+    def _get_months_for_year(self, year: int) -> range:
+        """Return months to download, optionally bounded by ERA5_START_DATE/ERA5_END_DATE."""
+        start_env = os.environ.get("ERA5_START_DATE")
+        end_env = os.environ.get("ERA5_END_DATE")
+
+        if not start_env and not end_env:
+            return range(1, 13)
+
+        start_date = date.fromisoformat(start_env) if start_env else date(year, 1, 1)
+        end_date = date.fromisoformat(end_env) if end_env else date(year, 12, 31)
+
+        if year < start_date.year or year > end_date.year:
+            return range(1, 1)
+
+        first_month = start_date.month if year == start_date.year else 1
+        last_month = end_date.month if year == end_date.year else 12
+        return range(first_month, last_month + 1)
+
     def _is_raw_dataset_for_variable(self, ds: xr.Dataset, variable: str) -> bool:
         """
         Return True if ds looks like a RAW ERA5-Land hourly dataset for `variable`.
@@ -139,7 +158,7 @@ class CopernicusDownloader:
         If not, re-download (or raise if download fails).
         """
         if force_redownload or (not raw_file.exists()):
-            return self.download_raw_data(variable, year, overwrite=True)
+            return self.download_raw_data(variable, year, overwrite=force_redownload)
 
         # Validate structure/content, not only "opens successfully"
         try:
@@ -361,6 +380,62 @@ class CopernicusDownloader:
 
         raise RuntimeError(f"Failed to download valid chunk for {variable} {year}-{month:02d} after {max_retries} attempts")
 
+    def _download_month_range(self, variable: str, year: int, months,
+                              client: cdsapi.Client, target_file: Optional[Path] = None,
+                              max_retries: int = 3) -> Path:
+        """Download a selected month range in one CDS request."""
+        output_file = target_file if target_file is not None else self._get_raw_file_path(variable, year)
+
+        # European bounding box (North, West, South, East)
+        area = [75, -25, 25, 45]
+        month_values = [f"{month:02d}" for month in months]
+
+        for attempt in range(max_retries):
+            try:
+                print(
+                    f"  📥 Bulk downloading {variable} for {year} "
+                    f"months {','.join(month_values)} (attempt {attempt+1}/{max_retries})..."
+                )
+
+                if output_file.exists():
+                    output_file.unlink()
+
+                client.retrieve(
+                    'reanalysis-era5-land',
+                    {
+                        'variable': self.variable_mapping[variable],
+                        'year': str(year),
+                        'month': month_values,
+                        'day': [f"{d:02d}" for d in range(1, 32)],
+                        'time': [f"{h:02d}:00" for h in range(0, 24)],
+                        'area': area,
+                        'grid': [0.1, 0.1],
+                        'format': 'netcdf',
+                    },
+                    str(output_file)
+                )
+
+                time.sleep(2)
+                actual_file = self._extract_zip_if_needed(output_file)
+                if self._validate_netcdf_file(actual_file):
+                    return actual_file
+
+                print(f"  ❌ Bulk download failed validation (attempt {attempt+1})")
+                if actual_file.exists():
+                    actual_file.unlink()
+
+            except Exception as e:
+                print(f"  ❌ Bulk download attempt {attempt+1} failed: {e}")
+                if output_file.exists():
+                    output_file.unlink()
+
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 10
+                    print(f"  ⏳ Waiting {wait_time} seconds before retry...")
+                    time.sleep(wait_time)
+
+        raise RuntimeError(f"Failed bulk download for {variable} {year} after {max_retries} attempts")
+
     def download_raw_data(self, variable: str, year: int, overwrite: bool = False) -> Path:
         """
         Download raw ERA5-Land data for a specific variable and year.
@@ -389,17 +464,51 @@ class CopernicusDownloader:
         chunk_files = []
 
         try:
-            # Download each month separately
-            for month in range(1, 13):
-                try:
-                    chunk_file = self._download_monthly_chunk(variable, year, month, client)
-                    chunk_files.append(chunk_file)
-                    print(f"  ✅ Downloaded chunk for {year}-{month:02d}")
-                except Exception as e:
-                    print(f"  ⚠️  Failed to download {year}-{month:02d}: {e}")
-                    continue
+            # Download each month separately. Date bounds are optional and keep
+            # the default full-year behavior unchanged.
+            months = self._get_months_for_year(year)
+            if len(months) == 0:
+                raise RuntimeError(f"No months selected for {variable} {year}")
 
-            # Merge monthly chunks into single file
+            if os.environ.get("ERA5_BULK_MONTHS") == "1":
+                group_size = int(os.environ.get("ERA5_BULK_GROUP_SIZE", "3"))
+                selected_months = list(months)
+                print(f"🔄 Bulk mode enabled for {variable} {year} with group size {group_size}")
+                for start in range(0, len(selected_months), group_size):
+                    month_group = selected_months[start:start + group_size]
+                    first_month = month_group[0]
+                    last_month = month_group[-1]
+                    chunk_file = raw_file.parent / (
+                        f"chunk_{variable}_{year}_{first_month:02d}-{last_month:02d}.nc"
+                    )
+                    try:
+                        if chunk_file.exists() and not overwrite and self._validate_netcdf_file(chunk_file):
+                            print(f"  ✅ Reusing existing bulk chunk for {year}-{first_month:02d}..{last_month:02d}")
+                        else:
+                            chunk_file = self._download_month_range(
+                                variable, year, month_group, client, target_file=chunk_file
+                            )
+                        chunk_files.append(chunk_file)
+                        print(f"  ✅ Downloaded bulk chunk for {year}-{first_month:02d}..{last_month:02d}")
+                    except Exception as e:
+                        print(f"  ⚠️  Failed to download {year}-{first_month:02d}..{last_month:02d}: {e}")
+                        continue
+            else:
+                for month in months:
+                    try:
+                        chunk_file = raw_file.parent / f"chunk_{variable}_{year}_{month:02d}.nc"
+                        if chunk_file.exists() and not overwrite and self._validate_netcdf_file(chunk_file):
+                            print(f"  ✅ Reusing existing chunk for {year}-{month:02d}")
+                        else:
+                            chunk_file = self._download_monthly_chunk(variable, year, month, client)
+                        chunk_files.append(chunk_file)
+                        print(f"  ✅ Downloaded chunk for {year}-{month:02d}")
+                    except Exception as e:
+                        print(f"  ⚠️  Failed to download {year}-{month:02d}: {e}")
+                        continue
+
+            # Merge chunks into single file. In non-bulk mode these are
+            # monthly chunks; in bulk mode they are grouped month ranges.
             if chunk_files:
                 print(f"🔗 Merging {len(chunk_files)} monthly chunks...")
                 datasets = []
@@ -839,6 +948,10 @@ class CopernicusDownloader:
         print(f"\n✅ Successfully processed: {success_count}/{total_items}")
         if fail_count > 0:
             print(f"❌ Failed processing: {fail_count}/{total_items}")
+            raise RuntimeError(
+                f"Failed to process {fail_count}/{total_items} climate files; "
+                "cannot continue with incomplete processed climate data."
+            )
         
         return processed_data
 

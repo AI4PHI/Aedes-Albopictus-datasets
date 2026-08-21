@@ -25,7 +25,7 @@ Each row in the output represents a single sampling event at a mosquito trap —
 - **Observation**: species, life stage (Egg / Adult / Larva), individual count, weekly occurrence rate
 - **Trap deployment**: start date, end date, duration in days
 - **Climate history** (per trap, per collection date):
-  - **Daily arrays** (89 days before collection) for precipitation, temperature, dewpoint, wind, and soil moisture — each statistic (min/max/mean or sum) stored as a separate column
+  - **Daily arrays** (90 days, from 89 days before collection through collection day) for precipitation, temperature, dewpoint, wind, and soil moisture — each statistic (min/max/mean or sum) stored as a separate column
   - **Monthly summaries** (3 × ~30-day means) of the same variables, capturing month-to-month climatic trends preceding the observation
   - A `climate_nan` flag indicating whether any extracted value contained missing data
 
@@ -107,7 +107,7 @@ Downloads are chunked by month, merged per year, subset to a European domain (25
 
 **Climate extraction** for each trap observation uses bilinear interpolation over the four surrounding grid cells (weights normalised over non-NaN neighbours for coastal/border traps):
 
-- **Daily window**: 89-day time series ending on `end_date` → vector of length 89 per variable
+- **Daily window**: inclusive 90-day time series from `end_date - 89 days` through `end_date` → vector of length 90 per variable
 - **Three-month summary**: the same window reshaped into 3 × ~30-day blocks, mean per block → vector of length 3
 
 This produces 16 climate feature columns per observation (daily vectors) plus their monthly aggregates.
@@ -121,9 +121,10 @@ Generates 10 charts into `output_stats/plots/` (species breakdown, pipeline funn
 ## Quick Start
 
 ```bash
-cd /home/biazzin/git/AIedes_data/data/counter
+# From the repository root
+cd data/counter
 
-# Full pipeline (downloads climate data automatically)
+# Full pipeline; resumes and reuses existing climate downloads automatically.
 bash make_counter_dataset.sh
 
 # Or step-by-step:
@@ -170,7 +171,7 @@ python src/copernicus_data.py --input-file path/to/data.pkl --enable-downloads
 | `individualCount` | Specimen count |
 | `lifeStage` | Egg / Adult / Larva |
 | `weeklyRate` | `7 × individualCount / time_diff` |
-| `{variable}` | Daily climate array (89 values) |
+| `{variable}` | Daily climate array (90 values) |
 | `{variable}_monthly` | Monthly climate array (3 values) |
 | `climate_nan` | `"yes"` if any climate extraction contained NaN |
 

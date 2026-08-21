@@ -379,6 +379,33 @@ class TrapClimateProcessor:
 
         return df
 
+    def validate_climate_columns_added(self, before_columns: set, df: pd.DataFrame) -> None:
+        """Fail if the final dataset did not receive climate variables."""
+        added_columns = set(df.columns) - before_columns
+        climate_columns = [
+            column for column in added_columns
+            if column.endswith("_min")
+            or column.endswith("_max")
+            or column.endswith("_mean")
+            or column.endswith("_sum")
+            or column.endswith("_monthly")
+        ]
+
+        if not climate_columns:
+            raise RuntimeError(
+                "No climate columns were added. Refusing to save the final "
+                "AIMSurv ERA5-Land dataset because the processed climate files "
+                "were missing or unusable."
+            )
+
+        if "climate_nan" not in df.columns:
+            raise RuntimeError(
+                "Climate columns were added but the climate_nan QA column is missing. "
+                "Refusing to save an incomplete final dataset."
+            )
+
+        self.logger.info(f"Validated {len(climate_columns)} climate columns")
+
     def save_results(self, df: pd.DataFrame, output_prefix: str):
         """
         Save the processed data to compressed CSV (ZIP) and pickle formats.
@@ -437,6 +464,7 @@ class TrapClimateProcessor:
 
         # Load and filter trap data
         df = self.load_and_filter_trap_data(input_file)
+        before_columns = set(df.columns)
 
         # Determine required years
         first_year, last_year = self.determine_required_years(df)
@@ -452,6 +480,7 @@ class TrapClimateProcessor:
 
         # Process climate variables
         df = self.process_all_climate_variables(df)
+        self.validate_climate_columns_added(before_columns, df)
 
         # Save results
         self.save_results(df, output_prefix)

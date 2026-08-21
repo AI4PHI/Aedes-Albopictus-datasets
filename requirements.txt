@@ -1,10 +1,10 @@
-# Compatible with climate_env environment (Python 3.12.9)
-# Based on versions in existing climate_env conda environment
+# Compatible with Python 3.12 and the conda environment in environment.yml
 
 # Core data processing libraries
 pandas>=2.2.0
 numpy>=2.1.0
 xarray>=2024.1.0
+dask>=2024.1.0
 
 # Geospatial data processing
 geopandas>=1.0.0

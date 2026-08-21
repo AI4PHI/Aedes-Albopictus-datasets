@@ -3,11 +3,12 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  # Compatible with climate_env environment (Python 3.12.9)
+  # Compatible with Python 3.12
   - python>=3.12
   - pandas>=2.2.0
   - numpy>=2.1.0
   - xarray>=2024.1.0
+  - dask>=2024.1.0
   - geopandas>=1.0.0
   - fiona>=1.10.0
   - netcdf4>=1.7.0

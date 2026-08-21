@@ -5,3 +5,16 @@ input_data/
 output_data/
 __pycache__/
 
+# Python / conda local environments
+.conda/
+.venv/
+venv/
+env/
+ENV/
+
+# Python caches
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
