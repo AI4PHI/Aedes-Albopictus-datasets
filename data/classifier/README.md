@@ -84,7 +84,8 @@ Climate NetCDF grid ─┘                                     └─ data/outpu
 ## Quick Start
 
 ```bash
-cd /home/biazzin/git/AIedes_data/data/classifier
+# From the repository root
+cd data/classifier
 
 # Generate dataset with CORDEX projections (2011–2020 climatology)
 python pair_ecdc_copernicus_data.py --year 2020 --climate-source cordex

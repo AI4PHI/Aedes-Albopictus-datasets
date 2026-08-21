@@ -26,7 +26,7 @@ This repository provides fully scripted, reproducible pipelines that produce two
 ## Repository Structure
 
 ```
-AIedes_data/
+Aedes-Albopictus-datasets/
 ├── README.md                          # ← this file
 ├── paper/
 │   ├── main.tex                       # Manuscript source
@@ -75,8 +75,8 @@ See [`data/counter/README.md`](data/counter/README.md) for full documentation.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/AIedes_data.git
-cd AIedes_data
+git clone https://github.com/AI4PHI/Aedes-Albopictus-datasets.git
+cd Aedes-Albopictus-datasets
 
 # Install dependencies
 pip install -r requirements.txt
@@ -86,26 +86,25 @@ pip install -r requirements.txt
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/AIedes_data.git
-cd AIedes_data
+git clone https://github.com/AI4PHI/Aedes-Albopictus-datasets.git
+cd Aedes-Albopictus-datasets
 
 # Create and activate environment
 conda env create -f environment.yml
 conda activate aiedes-data
 ```
 
-### Method 3: Using existing climate_env (recommended for maintainers)
+### Method 3: Using an existing compatible conda environment
 
-If you already have the `climate_env` environment set up:
+If you already have a conda environment with the required packages installed:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/AIedes_data.git
-cd AIedes_data
+git clone https://github.com/AI4PHI/Aedes-Albopictus-datasets.git
+cd Aedes-Albopictus-datasets
 
-# Activate existing environment
-conda activate climate_env
-# All dependencies are already satisfied!
+# Activate your existing environment
+conda activate <your-env-name>
 ```
 
 ### Development Setup
@@ -118,7 +117,7 @@ pip install -r requirements-dev.txt
 
 ### Prerequisites
 
-- **Python**: ≥3.12 (tested with 3.12.9 in climate_env)
+- **Python**: ≥3.12
 - **Copernicus CDS API**: Climate downloads require API credentials — see the individual READMEs for setup instructions.
 
 ## Data Sources
