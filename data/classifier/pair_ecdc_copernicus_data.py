@@ -23,14 +23,31 @@ from src import copernicus
 from src import aedes_suitability
 from src import unified_climate_downloader
 
+def add_basemap_if_available(ax, crs, zoom=5):
+    """Add a web basemap when tiles are reachable."""
+    try:
+        ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=crs, zoom=zoom)
+    except Exception as e:
+        print(f"Warning: could not add web basemap ({e}). Continuing without basemap.")
+
 def setup_directories():
     """Create necessary directories"""
-    Path("data/img").mkdir(exist_ok=True)
     Path("data").mkdir(exist_ok=True)
+    Path("data/inputs").mkdir(parents=True, exist_ok=True)
+    Path("data/outputs").mkdir(parents=True, exist_ok=True)
+    Path("data/img").mkdir(parents=True, exist_ok=True)
 
-def load_ecdc_data(name_file='20230828_VectorFlatFileGDB.gdb', parent_dir="./data/input/"):
+def load_ecdc_data(name_file='20230828_VectorFlatFileGDB.gdb.zip', parent_dir="./data/inputs/"):
     """Load and process ECDC vector data"""
-    zip_file_path = parent_dir + name_file
+    source_path = Path(parent_dir) / name_file
+    if not source_path.exists():
+        raise FileNotFoundError(
+            f"ECDC source geodatabase not found: {source_path}. "
+            "Place the August 2023 VectorNet flat-file geodatabase archive in "
+            "data/classifier/data/inputs/, or pass --parent-dir and --ecdc-file."
+        )
+
+    zip_file_path = str(source_path)
     zip_gdb_path = f"zip://{zip_file_path}"
     
     # List all layers in the Geodatabase
@@ -263,7 +280,7 @@ def create_suitability_plots(df, year, climate_source='cordex'):
         alpha=0.8,
         zorder=2
     )
-    ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_web.crs, zoom=5)
+    add_basemap_if_available(ax, df_web.crs, zoom=5)
     ax.set_title(f"Temperature Suitability Map - {climate_source.upper()} ({year})")
     ax.set_axis_off()
     plt.savefig(f"data/img/temperature_suitability_map_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
@@ -281,7 +298,7 @@ def create_suitability_plots(df, year, climate_source='cordex'):
         alpha=0.8,
         zorder=2
     )
-    ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_web.crs, zoom=5)
+    add_basemap_if_available(ax, df_web.crs, zoom=5)
     ax.set_title(f"Precipitation Suitability Map - {climate_source.upper()} ({year})")
     ax.set_axis_off()
     plt.savefig(f"data/img/precipitation_suitability_map_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
@@ -299,7 +316,7 @@ def create_suitability_plots(df, year, climate_source='cordex'):
         alpha=0.8,
         zorder=2
     )
-    ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_web.crs, zoom=5)
+    add_basemap_if_available(ax, df_web.crs, zoom=5)
     ax.set_title(f"Overall Suitability Map - {climate_source.upper()} ({year})")
     ax.set_axis_off()
     plt.savefig(f"data/img/overall_suitability_map_{climate_source}_{year}.png", dpi=150, bbox_inches='tight')
@@ -344,7 +361,7 @@ def filter_european_data(df, year, climate_source='cordex'):
     
     return df_european_nuts3
 
-def save_results_to_database(df, year, climate_source='cordex', output_dir='./data/outputs/'):
+def save_results_to_database(df, year, climate_source='cordex', output_dir='./data/outputs/', ecdc_snapshot_year=2023):
     """
     Save results to a clean CSV database with standardized naming.
     Keeps original column names but adds metadata.
@@ -354,6 +371,7 @@ def save_results_to_database(df, year, climate_source='cordex', output_dir='./da
         year: Year of analysis
         climate_source: 'cordex' or 'era5_land'
         output_dir: Output directory path
+        ecdc_snapshot_year: ECDC map snapshot year used in the input archive
     """
     import os
     from datetime import datetime
@@ -397,25 +415,22 @@ def save_results_to_database(df, year, climate_source='cordex', output_dir='./da
     metadata_cols = ['analysis_year', 'climate_data_source', 'processing_date']
     other_cols = [col for col in df_clean.columns if col not in metadata_cols]
     df_clean = df_clean[metadata_cols + other_cols]
+    df_clean = df_clean.reset_index(drop=True)
     
-    # Generate filename with climate source
-    filename = f"ecdc_albopictus_{climate_source}_{year}.csv"
+    # Generate filename with ECDC snapshot year and climate source.
+    filename = f"ecdc_albopictus_{ecdc_snapshot_year}_{climate_source}_{year}.csv"
     output_path = os.path.join(output_dir, filename)
     
-    # Save to CSV
+    # Save CSV and pickle outputs for publication.
     df_clean.to_csv(output_path, index=False)
+    pickle_path = output_path.replace('.csv', '.pkl')
+    df_clean.to_pickle(pickle_path)
     
-    # Always save as zip
-    compressed_path = output_path.replace('.csv', '.zip')
-    df_clean.to_csv(compressed_path, index=False, compression='zip')
-    
-    # Remove uncompressed CSV
-    os.remove(output_path)
-    
-    print(f"✅ Database saved: {compressed_path}")
+    print(f"✅ Database saved: {output_path}")
+    print(f"✅ Pickle saved:   {pickle_path}")
     print(f"   Shape: {df_clean.shape}")
     print(f"   Columns: {len(df_clean.columns)}")
-    print(f"   File size: {os.path.getsize(compressed_path) / 1024:.1f} KB")
+    print(f"   File size: {os.path.getsize(output_path) / 1024:.1f} KB")
     
     # Print data summary
     print("\n📊 Data Summary:")
@@ -428,7 +443,7 @@ def save_results_to_database(df, year, climate_source='cordex', output_dir='./da
         suitable_pct = suitable_count / len(df_clean) * 100
         print(f"   Climate suitable: {suitable_count} ({suitable_pct:.1f}%)")
     
-    return compressed_path
+    return output_path
 
 def analyze_presence_not_suitable(df, year, climate_source='cordex'):
     """
@@ -492,7 +507,7 @@ def analyze_presence_not_suitable(df, year, climate_source='cordex'):
             label='Present & Not Suitable', zorder=3
         )
         
-        ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_present_web.crs, zoom=5)
+        add_basemap_if_available(ax, df_present_web.crs, zoom=5)
         ax.legend(loc='lower left', fontsize=10, markerscale=5)
         ax.set_title(
             f"ECDC Present Points: Suitable vs Not Suitable\n"
@@ -530,7 +545,7 @@ def analyze_presence_not_suitable(df, year, climate_source='cordex'):
             if len(subset) > 0:
                 subset.plot(ax=ax, color=color, markersize=3, alpha=0.8, label=reason, zorder=3)
         
-        ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, crs=df_conflict_web.crs, zoom=5)
+        add_basemap_if_available(ax, df_conflict_web.crs, zoom=5)
         ax.legend(loc='lower left', fontsize=10, markerscale=5)
         ax.set_title(
             f"Present but Not Suitable — Failure Reasons\n"
@@ -558,6 +573,8 @@ def main():
                        help='Parent directory containing ECDC data (default: ./data/inputs)')
     parser.add_argument('--ecdc-file', type=str, default='20230828_VectorFlatFileGDB.gdb.zip',
                        help='ECDC file name (default: 20230828_VectorFlatFileGDB.gdb.zip)')
+    parser.add_argument('--ecdc-snapshot-year', type=int, default=2023,
+                       help='ECDC map snapshot year included in output filenames (default: 2023)')
     parser.add_argument('--climate-source', type=str, default='cordex', 
                        choices=['cordex', 'era5_land'],
                        help='Climate data source: cordex (default) or era5_land')
@@ -568,6 +585,7 @@ def main():
     year = args.year
     parent_dir = args.parent_dir
     ecdc_file = args.ecdc_file
+    ecdc_snapshot_year = args.ecdc_snapshot_year
     climate_source = args.climate_source
     output_dir = args.output_dir
     
@@ -617,7 +635,8 @@ def main():
         df_european, 
         year=year, 
         climate_source=climate_source,
-        output_dir=output_dir
+        output_dir=output_dir,
+        ecdc_snapshot_year=ecdc_snapshot_year
     )
     
     print("\n" + "="*50)

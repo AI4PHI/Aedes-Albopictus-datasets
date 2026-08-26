@@ -4,9 +4,9 @@ import sys
 import numpy as np
 import pandas as pd
 
-def load_csv_zip(path: str) -> pd.DataFrame:
-    # Pandas auto-detects the single CSV inside the zip
-    return pd.read_csv(path, compression="zip")
+def load_table(path: str) -> pd.DataFrame:
+    compression = "zip" if path.endswith(".zip") else "infer"
+    return pd.read_csv(path, compression=compression)
 
 def normalize_non_numeric(s: pd.Series, strip: bool) -> pd.Series:
     if strip and s.dtype == object:
@@ -153,10 +153,10 @@ def compare_dataframes(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare two zipped CSV DataFrames, ignoring small numeric differences."
+        description="Compare two CSV DataFrames, ignoring small numeric differences."
     )
-    parser.add_argument("file1", help="Path to first .zip (CSV inside)")
-    parser.add_argument("file2", help="Path to second .zip (CSV inside)")
+    parser.add_argument("file1", help="Path to first .csv or .zip")
+    parser.add_argument("file2", help="Path to second .csv or .zip")
     parser.add_argument("--index-col", help="Column to align rows by (e.g., location_id)", default=None)
     parser.add_argument("--rtol", type=float, default=1e-6, help="Relative tolerance for numeric comparison")
     parser.add_argument("--atol", type=float, default=1e-6, help="Absolute tolerance for numeric comparison")
@@ -166,8 +166,8 @@ def main():
     args = parser.parse_args()
 
     try:
-        df1 = load_csv_zip(args.file1)
-        df2 = load_csv_zip(args.file2)
+        df1 = load_table(args.file1)
+        df2 = load_table(args.file2)
     except Exception as e:
         print(f"❌ Failed to load files: {e}")
         sys.exit(2)

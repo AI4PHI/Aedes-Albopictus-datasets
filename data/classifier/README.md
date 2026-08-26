@@ -14,8 +14,10 @@ Each row in the output represents **one climate grid point** located within an E
 
 | File | Format | Description |
 |------|--------|-------------|
-| `data/outputs/ecdc_albopictus_cordex_{year}.zip` | Compressed CSV | Final dataset using CORDEX climate (~12 km) |
-| `data/outputs/ecdc_albopictus_era5_land_{year}.zip` | Compressed CSV | Final dataset using ERA5-Land climate (~9 km) |
+| `data/outputs/ecdc_albopictus_2023_cordex_{year}.csv` | CSV | Final dataset using CORDEX climate (~12 km) |
+| `data/outputs/ecdc_albopictus_2023_cordex_{year}.pkl` | Pickle | Same CORDEX dataset serialized for Python workflows |
+| `data/outputs/ecdc_albopictus_2023_era5_land_{year}.csv` | CSV | Final dataset using ERA5-Land climate (~9 km) |
+| `data/outputs/ecdc_albopictus_2023_era5_land_{year}.pkl` | Pickle | Same ERA5-Land dataset serialized for Python workflows |
 
 **What each record contains:**
 
@@ -57,7 +59,7 @@ data/classifier/
 
 ```
 ECDC GDB polygons ──┐
-                     ├─ spatial join (point-in-polygon) ─► paired CSV (zipped)
+                     ├─ spatial join (point-in-polygon) ─► paired CSV zip + pickle
 Climate NetCDF grid ─┘                                     └─ data/outputs/
 ```
 
@@ -98,7 +100,8 @@ Load in Python:
 
 ```python
 import pandas as pd
-df = pd.read_csv('data/outputs/ecdc_albopictus_cordex_2020.zip', compression='zip')
+df = pd.read_csv('data/outputs/ecdc_albopictus_2023_cordex_2020.csv')
+df_pickle = pd.read_pickle('data/outputs/ecdc_albopictus_2023_cordex_2020.pkl')
 ```
 
 ## Output Variables
@@ -181,7 +184,7 @@ This diagnostic helps quantify the labelling noise introduced by polygon-to-grid
 
 ```python
 # Clean training set: definitive labels + climatically suitable points
-df = pd.read_csv('data/outputs/ecdc_albopictus_cordex_2020.zip', compression='zip')
+df = pd.read_csv('data/outputs/ecdc_albopictus_2023_cordex_2020.csv')
 df_train = df[(df['presence_numeric'].isin([0, 1])) & (df['Suitable'] == 1)].copy()
 ```
 

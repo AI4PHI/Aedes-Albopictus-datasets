@@ -40,6 +40,8 @@ from typing import Dict, Tuple, Optional, List
 from pathlib import Path
 
 import pandas as pd
+from pandas.api.types import is_bool_dtype
+import numpy as np
 import xarray as xr
 
 # Import local climate processing functions
@@ -62,6 +64,25 @@ except ImportError as e:
 
 class TrapClimateProcessor:
     """Processes trap data and pairs it with climate data."""
+
+    CLIMATE_EXPORT_COLUMNS = {
+        "total_precipitation_sum": ("tp_sum", "precipitation"),
+        "10m_u_component_of_wind_min": ("u10_min", None),
+        "10m_u_component_of_wind_max": ("u10_max", None),
+        "10m_u_component_of_wind_mean": ("u10_mean", None),
+        "10m_v_component_of_wind_min": ("v10_min", None),
+        "10m_v_component_of_wind_max": ("v10_max", None),
+        "10m_v_component_of_wind_mean": ("v10_mean", None),
+        "2m_dewpoint_temperature_min": ("d2m_min", "temperature"),
+        "2m_dewpoint_temperature_max": ("d2m_max", "temperature"),
+        "2m_dewpoint_temperature_mean": ("d2m_mean", "temperature"),
+        "2m_temperature_min": ("t2m_min", "temperature"),
+        "2m_temperature_max": ("t2m_max", "temperature"),
+        "2m_temperature_mean": ("t2m_mean", "temperature"),
+        "volumetric_soil_water_layer_1_min": ("swvl1_min", None),
+        "volumetric_soil_water_layer_1_max": ("swvl1_max", None),
+        "volumetric_soil_water_layer_1_mean": ("swvl1_mean", None),
+    }
 
     def __init__(self, config: Dict):
         """Initialize processor with configuration."""
@@ -406,6 +427,66 @@ class TrapClimateProcessor:
 
         self.logger.info(f"Validated {len(climate_columns)} climate columns")
 
+    @staticmethod
+    def _convert_climate_values(values, unit_kind: Optional[str]):
+        """Convert ERA5-Land export units to the manuscript schema."""
+        if unit_kind is None:
+            return values
+
+        array = np.asarray(values, dtype=float)
+        if unit_kind == "temperature":
+            return array - 273.15
+        if unit_kind == "precipitation":
+            return array * 1000.0
+        return values
+
+    def prepare_export_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert internal climate columns to the published/manuscript schema.
+
+        Internal processing keeps descriptive ERA5 variable names and monthly
+        arrays. The exported dataset uses short ERA5 names and separate
+        three-month aggregate columns, matching Table 2 in the manuscript.
+        """
+        export_df = df.copy()
+
+        if "id_trap" in export_df.columns:
+            export_df = export_df.rename(columns={"id_trap": "trap_id"})
+
+        if "climate_nan" in export_df.columns:
+            if not is_bool_dtype(export_df["climate_nan"]):
+                climate_nan_bool = (
+                    export_df["climate_nan"]
+                    .astype(str)
+                    .str.lower()
+                    .map({"yes": True, "no": False})
+                )
+                export_df["climate_nan"] = climate_nan_bool.where(
+                    climate_nan_bool.notna(),
+                    export_df["climate_nan"].astype(bool),
+                ).astype(bool)
+
+        for source_col, (export_col, unit_kind) in self.CLIMATE_EXPORT_COLUMNS.items():
+            monthly_col = f"{source_col}_monthly"
+            if monthly_col in export_df.columns:
+                monthly_values = export_df.pop(monthly_col).apply(
+                    lambda values: self._convert_climate_values(values, unit_kind)
+                )
+                for month_idx in range(self.config["months_to_average"]):
+                    export_df[f"{export_col}_m{month_idx + 1}"] = monthly_values.apply(
+                        lambda values, idx=month_idx: values[idx]
+                        if isinstance(values, np.ndarray) and len(values) > idx
+                        else np.nan
+                    )
+
+            if source_col in export_df.columns:
+                export_df[source_col] = export_df[source_col].apply(
+                    lambda values: self._convert_climate_values(values, unit_kind)
+                )
+                export_df = export_df.rename(columns={source_col: export_col})
+
+        return export_df
+
     def save_results(self, df: pd.DataFrame, output_prefix: str):
         """
         Save the processed data to compressed CSV (ZIP) and pickle formats.
@@ -423,14 +504,12 @@ class TrapClimateProcessor:
         self.logger.info(f"Saving results to {csv_file} and {pkl_file}")
 
         try:
-            # Create a copy to avoid mutating the input DataFrame
-            export_df = df.copy()
+            export_df = self.prepare_export_dataframe(df)
 
             # Cast object-typed boolean columns to appropriate types
             for col in ("keep", "climate_nan"):
                 if col in export_df.columns:
                     if export_df[col].dtype == object:
-                        # 'keep' is boolean-like, 'climate_nan' is string "yes"/"no"
                         if col == "keep":
                             export_df[col] = export_df[col].astype(bool)
 
@@ -446,8 +525,8 @@ class TrapClimateProcessor:
             )
             self.logger.info(f"Saved compressed CSV to {csv_file}")
 
-            df.to_pickle(pkl_file)
-            self.logger.info(f"Successfully saved {len(df)} records")
+            export_df.to_pickle(pkl_file)
+            self.logger.info(f"Successfully saved {len(export_df)} records")
         except Exception as e:
             self.logger.error(f"Failed to save results: {e}")
             raise

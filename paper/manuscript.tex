@@ -1,0 +1,1212 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{float}
+
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.85}
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{4}
+\setcounter{totalnumber}{6}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=black
+}
+
+\newcommand{\keywords}[1]{\par\noindent\textbf{Keywords: }#1\par}
+\providecommand{\citep}[1]{\cite{#1}}
+\providecommand{\citet}[1]{\cite{#1}}
+
+\title{Harmonised climate and \textit{Aedes albopictus} arboviral vector mosquito surveillance datasets for the European continent }
+
+\author{%
+Indaco Biazzo$^{1}$\thanks{Correspondence: indaco.biazzo@ec.europa.eu},
+Lia Orfei$^{1}$,
+Sergio Consoli$^{1}$,
+Lea Schuh$^{1}$,
+Peter V.\ Markov$^{1,2}$\\[0.5em]
+\small $^{1}$European Commission, Joint Research Centre (JRC), Ispra, Italy\\
+\small $^{2}$London School of Hygiene and Tropical Medicine, London, UK
+}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+
+We present two harmonised datasets linking \textit{Aedes 
+albopictus} mosquito surveillance observations with standardised climate 
+variables, designed to support benchmarking and reproducible modelling of 
+mosquito distribution and abundance across Europe. The first dataset pairs 
+polygon-level presence/absence records from the European Centre for Disease 
+Prevention and Control (ECDC) with ERA5-Land and CORDEX climate grids, 
+yielding 157,918 and 79,398 spatially explicit grid points respectively, 
+of which 34,482 and 20,832 carry confirmed presence labels. The 
+second dataset combines 15,329 trap-level observations from 1,647 trap 
+locations across western and southern Europe (AIMSurv v2.3) with ERA5-Land 
+daily and monthly climate variables aligned to sampling periods. Both datasets 
+are generated through transparent, documented preprocessing pipelines with 
+explicit quality-control criteria, relying exclusively on open data sources. 
+Rather than introducing new primary surveillance observations, this secondary
+data resource provides a reproducible transformation of public surveillance
+and climate sources into common, analysis-ready benchmark datasets.
+Together, they provide a consistent foundation for methodological benchmarking 
+and reuse across ecological and epidemiological applications. Both datasets are 
+publicly available via the JRC Data Catalogue.
+\end{abstract}
+
+\keywords{Aedes albopictus, mosquito surveillance, climate data, ERA5-Land, CORDEX, species distribution modelling, arbovirus, Europe}
+
+\section*{Background \& Summary}
+
+Quantitative modelling of mosquito vector distribution and abundance plays a central role in infectious disease surveillance, risk assessment, and public health decision-making worldwide. In recent decades, the extensive spread of invasive mosquito species has increased the risk of vector-borne diseases across a wider range of environmental contexts and at new, previously unaffected locations. Among these species, \emph{Aedes albopictus} (\textit{Ae. albopictus}) has caused particular concern due to its rapid expansion to new continents, its capacity to establish in diverse climatic conditions, and its role as a competent vector of several arboviruses of major public health relevance, including among others dengue, chikungunya, and Zika viruses \cite{Wilkerson2020, kraemer2019, kraemer2015}. Climatic conditions, particularly temperature and precipitation, are widely recognised as primary drivers of the movement, establishment, and seasonal dynamics of \emph{Ae. albopictus} populations \cite{ryan2019,Mordecai2019}, making climatic data central to most quantitative modelling approaches.
+
+Despite the importance of climate-driven modelling, systematic and reproducible comparison of mosquito distribution and abundance models remains difficult. Existing studies are often developed over limited spatial domains \cite{guzzetta2016, Kioutsioukis2019, angelou2021, dare2022, dare2025, kinney2024rapid}, rely on locally curated or partially inaccessible datasets \cite{li2019}, or apply study-specific preprocessing and filtering choices. As a result, model performance is frequently reported using study-specific assumptions and evaluation strategies, limiting comparability across methods and regions \cite{davis2024,zardini2024}.
+
+These limitations are particularly pronounced for abundance modelling, where observations are sparse, 
+collected under diverse surveillance protocols, and rarely paired with climate covariates in a 
+standardised and reusable format. The lack of harmonised datasets that consistently link 
+surveillance observations with climate variables hampers both methodological benchmarking 
+and the transferability of modelling approaches across studies, regions or mosquito species.
+
+Public observation databases and surveillance portals already provide essential
+access to primary or curated mosquito records. For example, VectAbundance
+provides a spatio-temporal database of \textit{Aedes} mosquito observations
+\cite{dare2024_vectabundance}, while ECDC and AIMSurv provide the surveillance
+sources used in this study. The present resource complements these archives by
+converting selected open surveillance and climate sources into fixed,
+documented, analysis-ready datasets for climate-informed model development and
+benchmarking.
+
+The added value lies in the reproducible preparation of a common modelling data
+layer. For the ECDC component, this includes polygon-to-grid conversion of
+surveillance labels, linkage to ERA5-Land and CORDEX climatologies, preservation
+of surveillance metadata, and explicit quality-control flags. For the AIMSurv
+component, it includes trap-level record cleaning, sampling-effort validation,
+retention of zero-count observations, weekly rate normalisation, bilinear
+climate extraction, 90-day daily climate vectors, and three-month aggregate
+features. These steps are time-consuming and require methodological choices
+that can otherwise differ across research groups. Providing the processed
+outputs together with documented pipelines enables machine-learning,
+statistical, and mechanistic modelling approaches to be evaluated on the same
+underlying data, making comparisons more transparent and easier to reproduce.
+
+Together, the two datasets provide openly available reference resources that support benchmarking, 
+methodological comparison, and reuse across ecological and epidemiological studies, with a focus on robust, 
+climate-informed modelling of \emph{Ae.\ albopictus} distribution and abundance.
+
+These datasets have been used to train and benchmark neural network models for \textit{Ae.\ albopictus} 
+presence and abundance estimation across Europe \cite{biazzo2026_aiedes}.
+
+\paragraph{Dataset 1: ECDC polygon-to-grid climate dataset.}
+ECDC mosquito surveillance data provide polygon-level information on species presence and absence across Europe. These records are spatially joined to high-resolution climate grids, producing a dataset in which each climate grid point within an ECDC polygon inherits the corresponding surveillance metadata. Monthly climate variables are derived from either the Programme of the European Union Copernicus' Coordinated Regional Climate Downscaling Experiment (CORDEX) or the ECMWF Reanalysis v5 - Land (ERA5-Land), enabling applications in species distribution modelling and climate impact assessments.
+
+\paragraph{Dataset 2: AIMSurv trap-level climate dataset.}
+The AIMSurv dataset (version 2.3) comprises standardised trap-level mosquito observations collected across Europe under harmonised protocols. Trap records are paired with ERA5-Land daily and monthly climate variables, producing a time-resolved dataset suitable for abundance modelling, temporal analysis, and epidemiological studies.\\
+
+The taxonomic composition of the AIMSurv occurrence records is summarised 
+in Figure~\ref{fig:top_species}, confirming that \textit{Aedes albopictus} 
+and zero-count \textit{Culicidae} records dominate the archive. The geographic 
+distribution of trap locations in the final AIMSurv dataset spans western and 
+southern Europe, with concentrations in France, Italy, Spain, and the Balkans 
+(Figure~\ref{fig:geo_scatter}).
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=0.85\textwidth]{01_top_species.png}
+  \caption{Taxonomic composition of the AIMSurv occurrence archive (top 15 
+  taxa). \textit{Aedes albopictus} contributes 3,775 positive-count records; 
+  zero-count records are predominantly labelled at family level 
+  (\textit{Culicidae}, 13,582 records). Only \textit{Aedes albopictus} records 
+  and all zero-count records are retained in the final dataset.}
+  \label{fig:top_species}
+\end{figure}
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=0.85\textwidth]{09_geographic_scatter.png}
+  \caption{Geographic distribution of the 1,648 trap locations in the final 
+  AIMSurv dataset, coloured by life stage (egg, adult, larva). Traps are 
+  concentrated in western and southern Europe, reflecting the current 
+  distribution of harmonised \textit{Aedes albopictus} surveillance networks.}
+  \label{fig:geo_scatter}
+\end{figure}
+
+Both datasets are constructed to support open and reproducible model evaluation by providing explicit preprocessing steps, documented quality-control procedures, and clearly defined filtering criteria.
+
+\section*{Methods}
+
+\subsection*{Input data sources and reuse conditions}
+
+The processing pipelines use four public input sources. AIMSurv v2.3 is a
+sampling-event Darwin Core Archive published through GBIF/IPT under a CC0
+public-domain dedication \cite{aimsurv_gbif} and described in the primary
+AIMSurv publication \cite{miranda2022_aimsurv}. ECDC mosquito-map data are
+publicly distributed by the European Centre for Disease Prevention and Control
+as regional surveillance-status maps \cite{ecdc_mosquito_maps}; reuse follows
+the applicable ECDC legal and attribution guidance \cite{ecdc_legal_notice}.
+ERA5-Land reanalysis and CORDEX regional climate simulations were obtained
+through the Copernicus Climate Data Store \cite{copernicus_cds,
+munoz2019_era5, cordex}; users should follow the CDS product terms and, for
+CORDEX, any modelling-centre conditions associated with the selected
+simulations. The CORDEX inputs used here are the EUR-11 ($0.11^{\circ}$)
+simulation of the SMHI-RCA4 regional climate model (version v1a) driven by the
+MPI-M-MPI-ESM-LR global model under RCP4.5.
+
+\subsection*{Construction of the ECDC polygon-to-grid paired dataset (Dataset 1)}
+
+This dataset constitutes the core classifier dataset produced by the processing pipeline. It is generated by spatially joining polygon-level mosquito surveillance records from the European Centre for Disease Prevention and Control (ECDC), reported at the NUTS-3 regional level, to individual climate grid points derived from CORDEX regional climate simulations or ERA5-Land reanalysis. The resulting dataset provides a grid-resolved representation of surveillance information paired with climate covariates.
+
+The ECDC input data are regional surveillance-status records from the ECDC
+mosquito maps/vector surveillance system \cite{ecdc_mosquito_maps}. These maps
+summarise information reported by European vector-surveillance networks as
+polygon-level status categories. Surveillance organisation, legal
+responsibilities, and operational arrangements differ among European countries
+and regions \cite{ecdc2021_vector_surveillance}. The present pipeline uses the
+published ECDC polygon/status product as its starting point, preserves the
+associated regional metadata, and links those labels to climate-grid points.
+The released ECDC-derived files use the August 2023 map snapshot
+(\texttt{DateSelected~=~20230828}).
+
+Each output record represents a single climate grid point. Grid points inherit all ECDC metadata associated with the polygon in which they are located, including regional identifiers, species name, and presence or absence status. This approach enables the use of polygon-based surveillance data in grid-based modelling frameworks while preserving the original surveillance labels.
+
+Climate inputs are provided as monthly climatologies. For each grid point, climate variables are stored as 12-element arrays representing calendar months (January–December) and can optionally be expanded into month-specific columns for modelling convenience. Climate values are computed as decadal averages: the \texttt{year} field denotes the final year of the averaging window (e.g., \texttt{year = 2020} corresponds to the period 2011--2020).
+
+\paragraph{Climate variables}
+The following climate variables are included for each grid point:
+\begin{itemize}
+    \item \textbf{Monthly mean 2\,m air temperature} (\texttt{temperature\_2m\_monthly}, $^{\circ}$C), stored as a 12-element array.
+    \item \textbf{Monthly total precipitation} (\texttt{precipitation\_monthly}, mm), stored as a 12-element array.
+    \item Optional expanded month-specific variables (e.g., \texttt{temp\_Jan\_C}, \texttt{temp\_Feb\_C}, \ldots, \texttt{precip\_Dec\_mm}).
+\end{itemize}
+
+\paragraph{Filters to reduce labelling artefacts}
+Polygon-to-grid downscaling can introduce labelling artefacts due to climatic 
+heterogeneity within surveillance regions. The dataset retains all matched 
+grid points with their original surveillance labels. To support transparent 
+and reproducible model training, the following filtering criteria are 
+\emph{recommended} for downstream application:
+\begin{enumerate}
+    \item \textbf{Status filter:} records with definitive surveillance outcomes 
+    can be selected by restricting \texttt{presence\_numeric} to values in 
+    \{0, 1\} (Absent, Present), thereby excluding ambiguous 
+    categories such as Introduced~(2) and No data/Unknown~(3). Note that the 
+    processing pipeline itself retains all categories; this filter is intended 
+    for downstream model training.
+    \item \textbf{Climate suitability filter:} grid points can be flagged as 
+    climatically suitable for \textit{Aedes albopictus} only if all of the 
+    following operational thresholds are satisfied. These thresholds are 
+    derived as conservative approximations of the known climatic tolerances 
+    of \textit{Ae.\ albopictus} \citep{ecdc2024a} and serve as coarse
+    quality-control flags for the released dataset. They are documented
+    separately from fitted species distribution model tolerances and
+    ecological niche limits:
+    \begin{itemize}
+        \item \textbf{Winter survival threshold:}
+        \[
+        \min(T_{\text{monthly}}) \geq -3\,^{\circ}\mathrm{C}
+        \]
+        \item \textbf{Annual development threshold:}
+        \[
+        \mathrm{mean}(T_{\text{monthly}}) \geq 10\,^{\circ}\mathrm{C}
+        \]
+        \item \textbf{Annual precipitation threshold:}
+        \[
+        \sum(P_{\text{monthly}}) > 200\,\mathrm{mm~yr^{-1}}
+        \]
+    \end{itemize}
+\end{enumerate}
+Grid points failing any of these criteria are marked as unsuitable 
+(\texttt{Suitable = 0}) and can be excluded from downstream analyses. 
+The resulting spatial pattern of climate suitability is reported in 
+the Technical Validation section (Figure~\ref{fig:suitability_map_cordex}). These filters provide
+conservative, transparent controls for sensitivity analyses in surveillance
+polygons with substantial climatic heterogeneity. Users
+may retain, modify, or omit these flags depending on the modelling objective.
+When applied to grid points labelled as present 
+(\texttt{presence\_numeric~=~1}), the suitability filter flags 
+4,668 out of 20,832 points (22.4\%) as unsuitable in the CORDEX-based 
+dataset and 6,306 out of 34,482 points (18.3\%) in the ERA5-Land-based 
+dataset, with temperature criteria accounting for the vast majority of 
+exclusions in both cases.
+
+
+\subsection*{Construction of the AIMSurv trap-level climate dataset (Dataset 2)}
+
+The AIMSurv trap-level climate dataset is generated by extracting 
+\textit{Aedes albopictus} observations from the AIMSurv Darwin Core Archive 
+(v2.3) and linking each sampling event to time-resolved ERA5-Land climate variables. 
+The source dataset reports AIMSurv2020, a pan-European harmonised
+surveillance effort for invasive \textit{Aedes} mosquitoes. Its minimum
+protocol used eggs collected in oviposition traps, while teams with additional
+resources could add adult sampling; the protocol harmonised sampling methods,
+collection frequency, minimum sampling length, and reporting
+\cite{miranda2022_aimsurv}. Source metadata describe participation by 46 teams
+from 24 countries and a sampling period from 15 January 2020 to 31 December
+2020. In the v2.3 Darwin Core Archive used by this pipeline, parsed
+\texttt{eventDate} values span 27 December 2019 to 22 January 2021 because
+some event-date ranges extend beyond the core 2020 sampling year.
+The raw archive comprises two files: an event table containing 20,930 sampling 
+events (each representing a trap deployment at a given location and time period) 
+and an occurrence table containing 19,743 records across 18 unique taxa (each 
+representing a taxonomic identification, including explicit zero counts, linked 
+to a parent event). The 1,187 events without any occurrence record represent 
+sampling occasions for which no taxonomic identification was recorded. The
+current pipeline uses occurrence records with explicit taxonomic information
+and count values, transforming the occurrence table into a clean,
+analysis-ready \textit{Aedes albopictus} dataset in six stages
+(Figure~\ref{fig:funnel}); record counts are tracked at five of these stages,
+as trap identification assigns identifiers without altering the record set.
+
+\subsubsection*{Stage 1: Extraction}
+Records matching \textit{Aedes albopictus} (Skuse, 1894) are selected 
+(3,775 records, all with positive \texttt{individualCount}). All 11,955 
+zero-count records---negative observations predominantly labelled at 
+family level (\textit{Culicidae})---are appended to preserve absence 
+information essential for occurrence-rate modelling, yielding 15,730 
+records. The taxonomic composition of the full occurrence archive is shown in 
+Figure~\ref{fig:top_species}.
+
+\subsubsection*{Stage 2: Coordinate cleaning}
+Degree symbols and comma-decimal separators are standardised (600 and 1 affected rows, respectively). No records are lost; all coordinates parse successfully.
+
+\subsubsection*{Stage 3: Trap identification}
+A numeric trap identifier is assigned to each unique coordinate pair, 
+producing 1,648 traps (median 8 records per trap; range 1--95), 
+distributed across western and southern Europe.
+
+\subsubsection*{Stage 4: Temporal processing and effort validation}
+Sampling durations are derived from \texttt{eventDate} date ranges. Seven records with zero-day duration are corrected to one day. The reported \texttt{samplingEffort} is cross-checked against the 
+calculated duration \texttt{time\_diff}; 356 records (2.3\%) with 
+discrepancies exceeding two days are discarded, comprising both 
+zero-count and positive-count observations (see Technical Validation, 
+Figure~\ref{fig:timediff}).
+
+\subsubsection*{Stage 5: Rate normalisation and filtering}
+A weekly occurrence rate is computed as $\text{weeklyRate} = 7 \times \text{individualCount}\,/\,\text{time\_diff}$. Records are restricted to three life stages (Egg, Adult, Larva). This cleaned surveillance-only table contains \textbf{15,374 records} across \textbf{1,648 
+traps}, of which 11,755 (76.5\%) are zero-count observations.
+
+\subsubsection*{Stage 6: Climate linkage}
+ERA5-Land reanalysis data \cite{munoz2019_era5} is downloaded from the Copernicus Climate Data Store (CDS) at 0.1° spatial resolution via the CDS API.
+Hourly fields are aggregated to daily resolution: instantaneous variables are summarised as daily minimum, maximum, and mean; accumulation variables (total precipitation) are summed over each day.
+Annual files are subset to a European domain (25--75°\,N, 25°\,W--45°\,E) and stored as compressed NetCDF-4.
+The released climate-linked table is restricted to observations with sampling periods ending in 2020, yielding \textbf{15,329 records} across \textbf{1,647 traps}, of which 11,711 (76.4\%) are zero-count observations.
+
+For each trap observation, climate values are extracted at the trap 
+coordinates using bilinear interpolation over the four surrounding grid 
+cells. The 90-day window was chosen to capture approximately three 
+consecutive mosquito generation cycles, covering the climatic conditions 
+most relevant to the observed abundance while remaining within a single 
+seasonal phase \cite{Mordecai2019, beckjohnson2013}.
+The interpolation weights are normalised over non-\texttt{NaN} neighbours, so that coastal or border traps where one or more grid cells fall over sea (and thus carry missing values) still receive an estimate provided at least one neighbour is valid.
+
+Two temporal aggregations are derived from the same 90-day window ending on the observation's \texttt{end\_date}:
+\begin{enumerate}
+    \item \textbf{Daily time series (90 days).} A vector of daily values is extracted for the 90-day period ending on the observation's \texttt{end\_date}, yielding a vector of length~90 for each climate variable.
+    \item \textbf{Three-month summary.} The same 90-day daily vector is reshaped into three consecutive $\sim$30-day blocks, and the mean of each block is computed, producing a three-element vector that captures month-to-month climatic trends preceding the observation.
+\end{enumerate}
+
+The six base ERA5-Land variables processed are: total precipitation, 2\,m temperature, 2\,m dewpoint temperature, 10\,m $u$- and $v$-components of wind, and volumetric soil water layer~1.
+For the five instantaneous variables, each daily statistic (min, max, mean) is computed, yielding 15 feature columns; for total precipitation, the daily sum is computed, yielding 1 feature column---resulting in 16 climate feature columns per observation (as daily vectors) plus their corresponding three-month aggregates.
+A quality flag (\texttt{climate\_nan}) is set for each record, marking whether any extracted value contains missing data; records flagged as \texttt{NaN} can be excluded in downstream modelling.
+ 
+% ── Figures ──────────────────────────────────────────────────────────────────
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=0.75\textwidth]{02_pipeline_funnel.png}
+  \caption{Record counts at each stage of the AIMSurv processing pipeline, 
+from raw occurrence records to the final analysis-ready dataset.}
+  \label{fig:funnel}
+\end{figure}
+
+
+\section*{Data Records}
+
+This study provides two harmonised datasets linking \textit{Aedes albopictus} surveillance observations with climate variables. Both datasets are released as analysis-ready tables in CSV and pkl (Python pickle) formats via the JRC Data Catalogue \cite{aedes_dataset_jrc}. Variable definitions, units, and filtering criteria are described in the subsections below; additional pipeline documentation and processing logs are available in the code repository \cite{aedes_data_repo}.
+
+Table~\ref{tab:datasets} summarises the three released dataset resources, 
+their formats, and key dimensions.
+
+\begin{table}[htbp]
+\caption{Summary of released dataset resources available at 
+\url{https://doi.org/10.2905/e4e68952-a02f-460d-8f85-eb630742741d}.}
+\label{tab:datasets}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{5.5cm}p{2.0cm}p{2.2cm}p{4.6cm}}
+\hline
+Resource & Format & Records & Climate source \\
+\hline
+ECDC \textit{Ae. albopictus} 2023 & CSV, pkl & 79,398 grid points & CORDEX RCP\,4.5 (2011--2020) \\
+ECDC \textit{Ae. albopictus} 2023 & CSV, pkl & 157,918 grid points & ERA5-Land (2011--2020) \\
+AIMSurv \textit{Ae. albopictus} v2.3 & CSV, pkl & 15,329 records & 
+ERA5-Land daily + monthly \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection*{Dataset 1: ECDC polygon-to-grid climate dataset}
+
+The polygon-to-grid dataset is distributed as compressed CSV archives 
+(\texttt{ecdc\_\{species\}\_\{climate\_source\}\_\{year\}.zip}) and as 
+serialised dataframes (\texttt{.pkl}). Each row corresponds to a single 
+climate grid point located within an ECDC surveillance polygon. 
+Table~\ref{tab:vars_ecdc} lists all variables with their types, units, 
+and descriptions.
+
+\begin{table}[htbp]
+\caption{Variable descriptions for Dataset~1 (ECDC polygon-to-grid).}
+\label{tab:vars_ecdc}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{5.5cm}p{2.0cm}p{2.2cm}p{4.6cm}}
+\hline
+Variable & Type & Units & Description \\
+\hline
+\texttt{latitude} & float & degrees\,N & Grid point latitude \\
+\texttt{longitude} & float & degrees\,E & Grid point longitude \\
+\texttt{location\_id} & string & -- & Unique grid point identifier 
+  (\texttt{lat\_\{lat\}\_lon\_\{lon\}}) \\
+\texttt{year} & integer & -- & Final year of the decadal averaging window \\
+\texttt{temperature\_2m\_monthly} & list[float] & $^{\circ}$C & 
+  12-element array of monthly mean 2\,m air temperature (Jan--Dec) \\
+\texttt{precipitation\_monthly} & list[float] & mm\,month$^{-1}$ & 
+  12-element array of monthly total precipitation (Jan--Dec) \\
+\texttt{months} & list[string] & -- & Month name labels 
+  (\texttt{['Jan',...,'Dec']}) \\
+\texttt{temp\_\{Mon\}\_C} & float & $^{\circ}$C & 
+  Expanded per-month temperature (e.g.\ \texttt{temp\_Jan\_C}) \\
+\texttt{precip\_\{Mon\}\_mm} & float & mm\,month$^{-1}$ & 
+  Expanded per-month precipitation (e.g.\ \texttt{precip\_Jan\_mm}) \\
+\texttt{presence\_numeric} & integer & -- & 
+  Surveillance label: 0=Absent, 1=Present, 2=Introduced, 3=Unknown \\
+\texttt{Suitable} & integer & -- & 
+  Climate suitability flag: 1=suitable, 0=unsuitable \\
+\hline
+\end{tabular}
+\end{table}
+
+Climate values represent decadal means; the \texttt{year} field denotes 
+the final year of the averaging window (e.g., \texttt{year~=~2020} 
+corresponds to 2011--2020). NUTS region identifiers and surveillance 
+labels (\texttt{presence\_numeric}) are inherited directly from the 
+source ECDC polygon. The dataset is intended for grid-based species 
+distribution modelling and benchmarking applications requiring explicit 
+spatial alignment between surveillance data and gridded climate covariates.
+
+\subsection*{Dataset 2: AIMSurv trap-level climate dataset}
+
+The trap-level dataset is distributed as a serialised dataframe 
+(\texttt{AIMSurv\_albopictus\_2020\_era5\_land.pkl}) and as a CSV 
+table (\texttt{AIMSurv\_albopictus\_2020\_era5\_land.csv}). Each row corresponds to a single sampling 
+event at a mosquito trap. Table~\ref{tab:vars_aimsurv} lists all 
+variables; climate columns follow the naming pattern 
+\texttt{\{var\}\_\{stat\}} for 90-day daily vectors and 
+\texttt{\{var\}\_\{stat\}\_m\{1,2,3\}} for three-month block aggregates.
+
+\begin{table}[htbp]
+\caption{Variable descriptions for Dataset~2 (AIMSurv trap-level). 
+Climate columns follow the pattern \texttt{\{var\}\_\{stat\}} for daily 
+vectors (length 90) and \texttt{\{var\}\_\{stat\}\_m\{1,2,3\}} for 
+three-month aggregates.}
+\label{tab:vars_aimsurv}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{5.5cm}p{2.0cm}p{2.2cm}p{4.6cm}}
+\hline
+Variable & Type & Units & Description \\
+\hline
+\texttt{decimalLatitude} & float & degrees\,N & Trap latitude \\
+\texttt{decimalLongitude} & float & degrees\,E & Trap longitude \\
+\texttt{trap\_id} & integer & -- & Unique numeric trap identifier \\
+\texttt{start\_date} & date & -- & Sampling period start date \\
+\texttt{end\_date} & date & -- & Sampling period end date \\
+\texttt{time\_diff} & integer & days & Computed sampling duration \\
+\texttt{lifeStage} & string & -- & Mosquito life stage: Egg, Larva, Adult \\
+\texttt{individualCount} & integer & -- & Raw observed mosquito count \\
+\texttt{weeklyRate} & float & ind.\,week$^{-1}$ & 
+  Normalised count: $7 \times \texttt{individualCount} / \texttt{time\_diff}$ \\
+\texttt{samplingEffort} & string & -- & Reported effort from AIMSurv archive \\
+\texttt{t2m\_\{min,max,mean\}} & list[float] & $^{\circ}$C & 
+  Daily min/max/mean 2\,m temperature (90-element vector) \\
+\texttt{d2m\_\{min,max,mean\}} & list[float] & $^{\circ}$C & 
+  Daily min/max/mean 2\,m dewpoint temperature (90-element vector) \\
+\texttt{u10\_\{min,max,mean\}} & list[float] & m\,s$^{-1}$ & 
+  Daily min/max/mean 10\,m zonal wind component (90-element vector) \\
+\texttt{v10\_\{min,max,mean\}} & list[float] & m\,s$^{-1}$ & 
+  Daily min/max/mean 10\,m meridional wind component (90-element vector) \\
+\texttt{swvl1\_\{min,max,mean\}} & list[float] & m$^{3}$\,m$^{-3}$ & 
+  Daily min/max/mean volumetric soil water layer 1 (90-element vector) \\
+\texttt{tp\_sum} & list[float] & mm & 
+  Daily total precipitation sum (90-element vector) \\
+\texttt{t2m\_\{min,max,mean\}\_m\{1,2,3\}} & float & $^{\circ}$C & 
+  Three-month block aggregates of 2\,m temperature \\
+\texttt{d2m\_\{min,max,mean\}\_m\{1,2,3\}} & float & $^{\circ}$C & 
+  Three-month block aggregates of dewpoint temperature \\
+\texttt{u10\_\{min,max,mean\}\_m\{1,2,3\}} & float & m\,s$^{-1}$ & 
+  Three-month block aggregates of zonal wind \\
+\texttt{v10\_\{min,max,mean\}\_m\{1,2,3\}} & float & m\,s$^{-1}$ & 
+  Three-month block aggregates of meridional wind \\
+\texttt{swvl1\_\{min,max,mean\}\_m\{1,2,3\}} & float & m$^{3}$\,m$^{-3}$ & 
+  Three-month block aggregates of soil water \\
+\texttt{tp\_sum\_m\{1,2,3\}} & float & mm & 
+  Three-month block aggregates of total precipitation \\
+\texttt{climate\_nan} & boolean & -- & 
+  True if any extracted climate value is missing \\
+\hline
+\end{tabular}
+\end{table}
+Observation metadata columns (\texttt{decimalLatitude}, 
+\texttt{decimalLongitude}, \texttt{lifeStage}, \texttt{individualCount}, 
+\texttt{eventDate}) are carried over verbatim from the AIMSurv Darwin 
+Core Archive. The derived \texttt{weeklyRate} normalises counts to a 
+common 7-day window, enabling comparison across sampling events with 
+different durations. The \texttt{climate\_nan} flag explicitly marks 
+records with incomplete climate estimates after bilinear interpolation, 
+typically at coastal or domain-edge trap locations. The dataset 
+is intended for abundance modelling and temporal analyses using harmonised 
+trap-level observations paired with time-resolved climate information.
+
+Trap locations span western and southern Europe, with concentrations 
+in France, Italy, Spain, and the Balkans (Figure~\ref{fig:geo_scatter}).
+
+\section*{Technical Validation}
+
+Both datasets were subjected to targeted validation procedures to ensure internal consistency, correct spatial and temporal alignment, and transparent handling of uncertainty.
+
+\paragraph{Input data verification.}
+All source datasets were obtained from versioned, authoritative repositories. Record counts and file integrity were verified after download to ensure completeness and reproducibility.
+
+\paragraph{Spatial and temporal consistency.}
+For the AIMSurv dataset, geographic coordinates were standardised and 
+validated. Sampling durations derived from \texttt{eventDate} date ranges 
+were cross-checked against the reported \texttt{samplingEffort}; 
+Figure~\ref{fig:timediff} shows the distribution of computed durations, 
+confirming that the vast majority of records cluster at the expected 
+7-day and 14-day collection intervals. Records with discrepancies 
+exceeding two days (356 records, 2.3\%) were removed.
+For the polygon-to-grid dataset, each climate grid point was uniquely 
+associated with a single ECDC surveillance polygon.
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=0.85\textwidth]{10_time_diff_distribution.png}
+  \caption{Distribution of sampling durations (top 30 values) in the 
+  AIMSurv dataset, stacked by life stage and zero/non-zero count status. 
+  The strong concentration at 7 and 14 days confirms protocol adherence; 
+  records with duration-effort discrepancies $> 2$ days were excluded 
+  from the final dataset. Solid bars: non-zero counts; hatched bars: 
+  zero counts.}
+  \label{fig:timediff}
+\end{figure}
+\paragraph{Climate data extraction.}
+For the AIMSurv trap-level dataset, climate variables were extracted from ERA5-Land using bilinear interpolation at trap coordinates. Interpolation weights were normalised over non-missing neighbouring grid cells to allow climate estimates for coastal and border locations. Records with incomplete climate values are explicitly flagged.
+For the polygon-to-grid dataset, climate variables are sampled directly at each climate grid point.
+
+\paragraph{Label integrity and filtering.}
+Uncertain surveillance categories in the ECDC data are explicitly encoded and can be excluded by users. Optional climate suitability flags provide conservative controls to mitigate potential labelling artefacts arising from climatic heterogeneity within surveillance polygons.
+This diagnostic is evaluated at climate-grid resolution; the underlying ECDC
+surveillance labels originate from NUTS-3 polygon-level status records.
+Therefore, the grid-level pattern in Figure~\ref{fig:suitability_map_cordex}
+should not be interpreted as a visual reproduction of the ECDC NUTS-3
+distribution map.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.75\textwidth]{overall_suitability_map_cordex_2020.png}
+  \caption{Conservative climate-filter diagnostic map for \textit{Aedes albopictus} based on 
+  CORDEX RCP\,4.5 decadal climatology (2011--2020). Green areas satisfy all three criteria (winter 
+    survival $\geq -3\,^{\circ}$C, annual mean temperature 
+    $\geq 10\,^{\circ}$C, annual precipitation $> 200$\,mm\,yr$^{-1}$). 
+    Red areas fail at least one criterion. Of 20,832 grid points labelled 
+    as present in the CORDEX dataset, 4,668 (22.4\%) are flagged 
+    as unsuitable; the corresponding figure for ERA5-Land is 6,306 of 
+  34,482 (18.3\%). The figure reports grid-level outcomes of the conservative suitability filter, not NUTS-3 polygon-level presence.}
+    \label{fig:suitability_map_cordex}
+\end{figure}
+
+\paragraph{Abundance distribution.}
+The distribution of individual counts in the final AIMSurv dataset 
+(Figure~\ref{fig:count_dist}) confirms the expected zero-inflated 
+structure: 76.4\% of records carry a zero count, while positive counts 
+follow a strongly right-skewed distribution. These zeros should be
+interpreted as a mixture of ecological absence or low abundance and
+observation-process effects, including trap type, sampling effort,
+detectability, timing, and reporting structure. Separating these mechanisms
+requires downstream analyses with model families that can accommodate both
+ecological and sampling-process zeros
+(e.g.\ zero-inflated or hurdle models).
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=0.85\textwidth]{06_individual_count_distribution.png}
+  \caption{Distribution of individual counts in the final AIMSurv 
+  dataset (15,329 records). Left: proportion of zero versus positive 
+  observations (76.4\% zeros, 23.6\% positive). Right: frequency 
+  distribution of positive counts (log-scaled $y$-axis, clipped at 
+  the 99th percentile), showing the strongly right-skewed structure 
+  typical of mosquito abundance data.}
+  \label{fig:count_dist}
+\end{figure}
+
+\paragraph{Reproducibility.}
+All processing steps are fully scripted and deterministic. Complete 
+pipeline code and processing logs are available in the code 
+repository~\cite{aedes_data_repo}.
+
+\section*{Usage Notes}
+
+The compressed CSV files are recommended for long-term archival,
+cross-language workflows, and analyses where Python or package-version
+compatibility is uncertain. The pkl files are provided for convenience in
+Python workflows and should be used with appropriate version checks.
+
+\subsection*{Dataset 1: ECDC polygon-to-grid}
+For most modelling applications, we recommend restricting analyses to 
+records with definitive surveillance outcomes (\texttt{presence\_numeric} 
+$\in$ \{0,\,1\}), thereby excluding ambiguous categories (Introduced, 
+Unknown). Among presence records, retaining only grid points flagged as 
+climatically suitable (\texttt{Suitable~=~1}) reduces potentially 
+spurious presences arising from climatic heterogeneity within 
+surveillance polygons. Both filters are optional and documented in the 
+Methods section; users may opt to retain all records and apply their 
+own filtering criteria.
+
+Because ECDC surveillance data are reported at the NUTS-3 polygon level, 
+multiple grid points within the same polygon share identical surveillance 
+labels. We recommend using NUTS-3 polygon splits (\texttt{NUTS\_ID}) 
+as a cross-validation strategy, which ensures that model performance 
+estimates reflect generalisation across regions and reduce within-polygon 
+interpolation effects.
+
+\subsection*{Dataset 2: AIMSurv trap-level}
+Users may select specific life stages (\texttt{lifeStage} $\in$ 
+\{Egg, Adult, Larva\}) depending on their biological question. Egg 
+records (ovitraps) dominate the dataset (13,601 of 15,329 records) and 
+reflect ovitrap detections of gravid females; adult and larval counts provide 
+complementary, sparser information. Users requiring a single consistent abundance metric across 
+life stages should use \texttt{weeklyRate} as the response variable.
+
+The dataset provides two levels of temporal climate aggregation to 
+accommodate different modelling strategies. The daily 90-day sequences 
+offer maximum temporal resolution and high-dimensional input 
+vectors (90 values per climate variable), which may increase the number 
+of free parameters in ML models and risk overfitting in small-sample 
+regimes. The three-month block aggregates (\texttt{\_m1}, \texttt{\_m2}, 
+\texttt{\_m3} suffixes) reduce the input dimensionality to 3 values per 
+variable, at the cost of temporal detail. Users may also derive 
+intermediate aggregations directly from the daily sequences --- for 
+instance, weekly means computed by reshaping the 90-day vector into 
+$\sim$13 weekly blocks --- offering a flexible trade-off between 
+input dimensionality and temporal resolution without requiring 
+reprocessing of the raw climate data.
+
+Records flagged with \texttt{climate\_nan~=~True} have incomplete 
+climate information due to coastal or domain-edge trap locations and 
+should be excluded or treated with caution in downstream modelling.
+
+\section*{Data Availability}
+
+The fully processed datasets described in this article are publicly 
+available in the Joint Research Centre (JRC) Data Catalogue 
+\cite{aedes_dataset_jrc} at 
+\url{https://doi.org/10.2905/e4e68952-a02f-460d-8f85-eb630742741d}. 
+The catalogue record contains six resources (CSV and pkl formats):
+(i) ECDC Albopictus 2023 paired with CORDEX RCP\,4.5 decadal 
+climatology (2011--2020);
+(ii) ECDC Albopictus 2023 paired with ERA5-Land decadal climatology 
+(2011--2020);
+(iii) AIMSurv Albopictus v2.3 paired with ERA5-Land daily and monthly 
+climate variables.
+All resources are released under the European Commission reuse notice 
+with no access restrictions.
+
+\section*{Acknowledgements}
+We would like to thank the colleagues of the Digital Health Unit (JRC.F7) at the Joint Research Centre of the European Commission for helpful guidance and support.
+The views expressed are purely those of the authors and may not in any circumstances be regarded as stating an official position of the European Commission. The authors used GPT@JRC to improve the language and writing style during the drafting of this manuscript. Afterwards, the authors reviewed and edited the sections as needed and take full responsibility for its content. 
+
+\section*{Funding}
+% Add funding sources or: 
+No external funding was received for this work. % if applicable
+
+
+\section*{Author Contributions}
+I.B.\ conceived and designed the study, implemented the data processing 
+pipelines, performed the analyses, and wrote the manuscript.
+L.O.\ contributed to the study design, the implementation of the 
+processing pipeline, and data curation and quality control. 
+S.C.\ contributed to the study 
+design and curated the dataset publication on the JRC Data Catalogue. 
+L.S.\ contributed to the study design. 
+P.V.M.\ contributed to the study design and supervised the study. 
+All authors reviewed and approved the final manuscript.
+
+\section*{Competing Interests}
+The authors declare no competing interests.
+
+
+\section*{Code Availability}
+All scripts used to generate the datasets are publicly available in the project GitHub repository \cite{aedes_data_repo}. The AIMSurv processing pipeline is located in the \texttt{data/counter/} directory, while the ECDC polygon-to-grid climate linkage pipeline is located in the \texttt{data/classifier/} directory. The published datasets can be reproduced by running the pipelines with the original source inputs following the instructions in the repository \texttt{README.md}.
+
+%% BioMed_Central_Bib_Style_v1.01
+
+\begin{thebibliography}{28}
+% BibTex style file: bmc-mathphys.bst (version 2.1), 2014-07-24
+\ifx \bisbn   \undefined \def \bisbn  #1{ISBN #1}\fi
+\ifx \binits  \undefined \def \binits#1{#1}\fi
+\ifx \bauthor  \undefined \def \bauthor#1{#1}\fi
+\ifx \batitle  \undefined \def \batitle#1{#1}\fi
+\ifx \bjtitle  \undefined \def \bjtitle#1{#1}\fi
+\ifx \bvolume  \undefined \def \bvolume#1{\textbf{#1}}\fi
+\ifx \byear  \undefined \def \byear#1{#1}\fi
+\ifx \bissue  \undefined \def \bissue#1{#1}\fi
+\ifx \bfpage  \undefined \def \bfpage#1{#1}\fi
+\ifx \blpage  \undefined \def \blpage #1{#1}\fi
+\ifx \burl  \undefined \def \burl#1{\textsf{#1}}\fi
+\ifx \doiurl  \undefined \def \doiurl#1{\url{https://doi.org/#1}}\fi
+\ifx \betal  \undefined \def \betal{\textit{et al.}}\fi
+\ifx \binstitute  \undefined \def \binstitute#1{#1}\fi
+\ifx \binstitutionaled  \undefined \def \binstitutionaled#1{#1}\fi
+\ifx \bctitle  \undefined \def \bctitle#1{#1}\fi
+\ifx \beditor  \undefined \def \beditor#1{#1}\fi
+\ifx \bpublisher  \undefined \def \bpublisher#1{#1}\fi
+\ifx \bbtitle  \undefined \def \bbtitle#1{#1}\fi
+\ifx \bedition  \undefined \def \bedition#1{#1}\fi
+\ifx \bseriesno  \undefined \def \bseriesno#1{#1}\fi
+\ifx \blocation  \undefined \def \blocation#1{#1}\fi
+\ifx \bsertitle  \undefined \def \bsertitle#1{#1}\fi
+\ifx \bsnm \undefined \def \bsnm#1{#1}\fi
+\ifx \bsuffix \undefined \def \bsuffix#1{#1}\fi
+\ifx \bparticle \undefined \def \bparticle#1{#1}\fi
+\ifx \barticle \undefined \def \barticle#1{#1}\fi
+\providecommand\bibcommenthead{}
+\ifx \bconfdate \undefined \def \bconfdate #1{#1}\fi
+\ifx \botherref \undefined \def \botherref #1{#1}\fi
+\ifx \url \undefined \def \url#1{\textsf{#1}}\fi
+\ifx \bchapter \undefined \def \bchapter#1{#1}\fi
+\ifx \bbook \undefined \def \bbook#1{#1}\fi
+\ifx \bcomment \undefined \def \bcomment#1{#1}\fi
+\ifx \oauthor \undefined \def \oauthor#1{#1}\fi
+\ifx \citeauthoryear \undefined \def \citeauthoryear#1#2{#1}\fi
+\ifx \endbibitem  \undefined \def \endbibitem {}\fi
+\ifx \bconflocation  \undefined \def \bconflocation#1{#1}\fi
+\ifx \arxivurl  \undefined \def \arxivurl#1{\textsf{#1}}\fi
+\csname PreBibitemsHook\endcsname
+
+%%% 1
+\bibitem{Wilkerson2020}
+\begin{bbook}
+\bauthor{\bsnm{Wilkerson}, \binits{R.C.}},
+\bauthor{\bsnm{Linton}, \binits{Y.-M.}},
+\bauthor{\bsnm{Strickman}, \binits{D.}}:
+\bbtitle{Mosquitoes of the World}.
+\bpublisher{Johns Hopkins University Press},
+\blocation{Baltimore, MD, USA}
+(\byear{2020})
+\end{bbook}
+\endbibitem
+
+%%% 2
+\bibitem{kraemer2019}
+\begin{barticle}
+\bauthor{\bsnm{Kraemer}, \binits{M.U.}},
+\bauthor{\bsnm{Reiner~Jr}, \binits{R.C.}},
+\bauthor{\bsnm{Brady}, \binits{O.J.}},
+\bauthor{\bsnm{Messina}, \binits{J.P.}},
+\bauthor{\bsnm{Gilbert}, \binits{M.}},
+\bauthor{\bsnm{Pigott}, \binits{D.M.}},
+\bauthor{\bsnm{Yi}, \binits{D.}},
+\bauthor{\bsnm{Johnson}, \binits{K.}},
+\bauthor{\bsnm{Earl}, \binits{L.}},
+\bauthor{\bsnm{Marczak}, \binits{L.B.}}, \betal:
+\batitle{Past and future spread of the arbovirus vectors \textit{Aedes aegypti} and \textit{Aedes albopictus}}.
+\bjtitle{Nature Microbiology}
+\bvolume{4}(\bissue{5}),
+\bfpage{854}--\blpage{863}
+(\byear{2019})
+\doiurl{10.1038/s41564-019-0376-y}
+\end{barticle}
+\endbibitem
+
+%%% 3
+\bibitem{kraemer2015}
+\begin{barticle}
+\bauthor{\bsnm{Kraemer}, \binits{M.U.}},
+\bauthor{\bsnm{Sinka}, \binits{M.E.}},
+\bauthor{\bsnm{Duda}, \binits{K.A.}},
+\bauthor{\bsnm{Mylne}, \binits{A.Q.}},
+\bauthor{\bsnm{Shearer}, \binits{F.M.}},
+\bauthor{\bsnm{Barker}, \binits{C.M.}},
+\bauthor{\bsnm{Moore}, \binits{C.G.}},
+\bauthor{\bsnm{Carvalho}, \binits{R.G.}},
+\bauthor{\bsnm{Coelho}, \binits{G.E.}},
+\bauthor{\bsnm{Van~Bortel}, \binits{W.}}, \betal:
+\batitle{The global distribution of the arbovirus vectors aedes aegypti and ae. albopictus}.
+\bjtitle{elife}
+\bvolume{4},
+\bfpage{08347}
+(\byear{2015})
+\doiurl{10.7554/eLife.08347}
+\end{barticle}
+\endbibitem
+
+%%% 4
+\bibitem{ryan2019}
+\begin{barticle}
+\bauthor{\bsnm{Ryan}, \binits{S.J.}},
+\bauthor{\bsnm{Carlson}, \binits{C.J.}},
+\bauthor{\bsnm{Mordecai}, \binits{E.A.}},
+\bauthor{\bsnm{Johnson}, \binits{L.R.}}:
+\batitle{Global expansion and redistribution of aedes-borne virus transmission risk with climate change}.
+\bjtitle{PLoS Neglected Tropical Diseases}
+\bvolume{13}(\bissue{3}),
+\bfpage{0007213}
+(\byear{2019})
+\doiurl{10.1371/journal.pntd.0007213}
+\end{barticle}
+\endbibitem
+
+%%% 5
+\bibitem{Mordecai2019}
+\begin{barticle}
+\bauthor{\bsnm{Mordecai}, \binits{E.A.}},
+\bauthor{\bsnm{Caldwell}, \binits{J.M.}},
+\bauthor{\bsnm{Grossman}, \binits{M.K.}},
+\bauthor{\bsnm{Lippi}, \binits{C.A.}},
+\bauthor{\bsnm{Johnson}, \binits{L.R.}},
+\bauthor{\bsnm{Neira}, \binits{M.}},
+\bauthor{\bsnm{Rohr}, \binits{J.R.}},
+\bauthor{\bsnm{Ryan}, \binits{S.J.}},
+\bauthor{\bsnm{Savage}, \binits{V.}},
+\bauthor{\bsnm{Shocket}, \binits{M.S.}},
+\bauthor{\bsnm{Sippy}, \binits{R.}},
+\bauthor{\bsnm{Stewart~Ibarra}, \binits{A.M.}},
+\bauthor{\bsnm{Thomas}, \binits{M.B.}},
+\bauthor{\bsnm{Villena}, \binits{O.}}:
+\batitle{Thermal biology of mosquito-borne disease}.
+\bjtitle{Ecology Letters}
+\bvolume{22}(\bissue{10}),
+\bfpage{1690}--\blpage{1708}
+(\byear{2019})
+\doiurl{10.1111/ele.13335}
+\end{barticle}
+\endbibitem
+
+%%% 6
+\bibitem{guzzetta2016}
+\begin{barticle}
+\bauthor{\bsnm{Guzzetta}, \binits{G.}},
+\bauthor{\bsnm{Montarsi}, \binits{F.}},
+\bauthor{\bsnm{Baldacchino}, \binits{F.A.}},
+\bauthor{\bsnm{Metz}, \binits{M.}},
+\bauthor{\bsnm{Capelli}, \binits{G.}},
+\bauthor{\bsnm{Rizzoli}, \binits{A.}},
+\bauthor{\bsnm{Pugliese}, \binits{A.}},
+\bauthor{\bsnm{Ros{\`a}}, \binits{R.}},
+\bauthor{\bsnm{Poletti}, \binits{P.}},
+\bauthor{\bsnm{Merler}, \binits{S.}}:
+\batitle{Potential risk of dengue and chikungunya outbreaks in northern italy based on a population model of aedes albopictus (diptera: Culicidae)}.
+\bjtitle{PLoS Neglected Tropical Diseases}
+\bvolume{10}(\bissue{6}),
+\bfpage{0004762}
+(\byear{2016})
+\doiurl{10.1371/journal.pntd.0004762}
+\end{barticle}
+\endbibitem
+
+%%% 7
+\bibitem{Kioutsioukis2019}
+\begin{barticle}
+\bauthor{\bsnm{Kioutsioukis}, \binits{I.}},
+\bauthor{\bsnm{Stilianakis}, \binits{N.I.}}:
+\batitle{Assessment of west nile virus transmission risk from a weather-dependent epidemiological model and a global sensitivity analysis framework}.
+\bjtitle{Acta Tropica}
+\bvolume{193},
+\bfpage{129}--\blpage{141}
+(\byear{2019})
+\doiurl{10.1016/j.actatropica.2019.03.003}
+\end{barticle}
+\endbibitem
+
+%%% 8
+\bibitem{angelou2021}
+\begin{barticle}
+\bauthor{\bsnm{Angelou}, \binits{A.}},
+\bauthor{\bsnm{Kioutsioukis}, \binits{I.}},
+\bauthor{\bsnm{Stilianakis}, \binits{N.I.}}:
+\batitle{A climate-dependent spatial epidemiological model for the transmission risk of west nile virus at local scale}.
+\bjtitle{One Health}
+\bvolume{13},
+\bfpage{100330}
+(\byear{2021})
+\doiurl{10.1016/j.onehlt.2021.100330}
+\end{barticle}
+\endbibitem
+
+%%% 9
+\bibitem{dare2022}
+\begin{barticle}
+\bauthor{\bsnm{Da~Re}, \binits{D.}},
+\bauthor{\bsnm{Van~Bortel}, \binits{W.}},
+\bauthor{\bsnm{Reuss}, \binits{F.}}, \betal:
+\batitle{dynamaedes: a unified modelling framework for invasive \textit{Aedes} mosquitoes}.
+\bjtitle{Parasites \& Vectors}
+\bvolume{15},
+\bfpage{414}
+(\byear{2022})
+\doiurl{10.1186/s13071-022-05414-4}
+\end{barticle}
+\endbibitem
+
+%%% 10
+\bibitem{dare2025}
+\begin{barticle}
+\bauthor{\bsnm{Da~Re}, \binits{D.}},
+\bauthor{\bsnm{Marini}, \binits{G.}},
+\bauthor{\bsnm{Bonannella}, \binits{C.}},
+\bauthor{\bsnm{Laurini}, \binits{F.}},
+\bauthor{\bsnm{Manica}, \binits{M.}},
+\bauthor{\bsnm{Anicic}, \binits{N.}},
+\bauthor{\bsnm{Albieri}, \binits{A.}},
+\bauthor{\bsnm{Angelini}, \binits{P.}},
+\bauthor{\bsnm{Arnoldi}, \binits{D.}},
+\bauthor{\bsnm{Bertola}, \binits{F.}},
+\bauthor{\bsnm{Caputo}, \binits{B.}},
+\bauthor{\bsnm{De~Liberato}, \binits{C.}},
+\bauthor{\bsnm{Della~Torre}, \binits{A.}},
+\bauthor{\bsnm{Flacio}, \binits{E.}},
+\bauthor{\bsnm{Franceschini}, \binits{A.}},
+\bauthor{\bsnm{Gradoni}, \binits{F.}},
+\bauthor{\bsnm{Kadriaj}, \binits{P.}},
+\bauthor{\bsnm{Lencioni}, \binits{V.}},
+\bauthor{\bsnm{Del~Lesto}, \binits{I.}},
+\bauthor{\bsnm{Russa}, \binits{F.}},
+\bauthor{\bsnm{Ros{\`a}}, \binits{R.}}:
+\batitle{Modelling the seasonal dynamics of \textit{Aedes albopictus} populations using a spatio-temporal stacked machine learning model}.
+\bjtitle{Scientific Reports}
+\bvolume{15}(\bissue{1}),
+\bfpage{3750}
+(\byear{2025})
+\doiurl{10.1038/s41598-025-87554-y}
+\end{barticle}
+\endbibitem
+
+%%% 11
+\bibitem{kinney2024rapid}
+\begin{botherref}
+\oauthor{\bsnm{Kinney}, \binits{A.C.}},
+\oauthor{\bsnm{Barrera}, \binits{R.}},
+\oauthor{\bsnm{Lega}, \binits{J.}}:
+Rapid and accurate mosquito abundance forecasting with aedes-ai neural networks.
+arXiv preprint
+(2024)
+{\href{https://arxiv.org/abs/2408.16152}{{arXiv:2408.16152}}}
+{[q-bio.PE]}
+\end{botherref}
+\endbibitem
+
+%%% 12
+\bibitem{li2019}
+\begin{barticle}
+\bauthor{\bsnm{Li}, \binits{R.}},
+\bauthor{\bsnm{Xu}, \binits{L.}},
+\bauthor{\bsnm{Bj{\o}rnstad}, \binits{O.N.}},
+\bauthor{\bsnm{Liu}, \binits{K.}},
+\bauthor{\bsnm{Song}, \binits{T.}},
+\bauthor{\bsnm{Chen}, \binits{A.}},
+\bauthor{\bsnm{Xu}, \binits{B.}},
+\bauthor{\bsnm{Liu}, \binits{Q.}},
+\bauthor{\bsnm{Stenseth}, \binits{N.C.}}:
+\batitle{Climate-driven variation in mosquito density predicts the spatiotemporal dynamics of dengue}.
+\bjtitle{Proceedings of the National Academy of Sciences}
+\bvolume{116}(\bissue{9}),
+\bfpage{3624}--\blpage{3629}
+(\byear{2019})
+\doiurl{10.1073/pnas.1817541116}
+\end{barticle}
+\endbibitem
+
+%%% 13
+\bibitem{davis2024}
+\begin{barticle}
+\bauthor{\bsnm{Davis}, \binits{E.L.}},
+\bauthor{\bsnm{Reimer}, \binits{L.J.}},
+\bauthor{\bsnm{Pellis}, \binits{L.}},
+\bauthor{\bsnm{Lyons}, \binits{H.M.}}:
+\batitle{An analytically tractable, age-structured model of the impact of vector control on mosquito-transmitted infections}.
+\bjtitle{PLoS Computational Biology}
+\bvolume{20}(\bissue{1}),
+\bfpage{1011440}
+(\byear{2024})
+\doiurl{10.1371/journal.pcbi.1011440}
+\end{barticle}
+\endbibitem
+
+%%% 14
+\bibitem{zardini2024}
+\begin{barticle}
+\bauthor{\bsnm{Zardini}, \binits{A.}},
+\bauthor{\bsnm{Menegale}, \binits{F.}},
+\bauthor{\bsnm{Gobbi}, \binits{A.}},
+\bauthor{\bsnm{Manica}, \binits{M.}},
+\bauthor{\bsnm{Guzzetta}, \binits{G.}},
+\bauthor{\bsnm{d'Andrea}, \binits{V.}},
+\bauthor{\bsnm{Marziano}, \binits{V.}},
+\bauthor{\bsnm{Trentini}, \binits{F.}},
+\bauthor{\bsnm{Montarsi}, \binits{F.}},
+\bauthor{\bsnm{Caputo}, \binits{B.}}, \betal:
+\batitle{Estimating the potential risk of transmission of arboviruses in the americas and europe: a modelling study}.
+\bjtitle{The Lancet Planetary Health}
+\bvolume{8}(\bissue{1}),
+\bfpage{30}--\blpage{40}
+(\byear{2024})
+\doiurl{10.1016/S2542-5196(23)00256-3}
+\end{barticle}
+\endbibitem
+
+%%% 15
+\bibitem{dare2024_vectabundance}
+\begin{barticle}
+\bauthor{\bsnm{Da~Re}, \binits{D.}},
+\bauthor{\bsnm{Marini}, \binits{G.}},
+\bauthor{\bsnm{Bonannella}, \binits{C.}},
+\bauthor{\bsnm{Laurini}, \binits{F.}},
+\bauthor{\bsnm{Manica}, \binits{M.}},
+\bauthor{\bsnm{Anicic}, \binits{N.}},
+\bauthor{\bsnm{Albieri}, \binits{A.}},
+\bauthor{\bsnm{Angelini}, \binits{P.}},
+\bauthor{\bsnm{Arnoldi}, \binits{D.}},
+\bauthor{\bsnm{Blaha}, \binits{M.}},
+\bauthor{\bsnm{Bertola}, \binits{F.}},
+\bauthor{\bsnm{Caputo}, \binits{B.}},
+\bauthor{\bsnm{De~Liberato}, \binits{C.}},
+\bauthor{\bsnm{{della Torre}}, \binits{A.}},
+\bauthor{\bsnm{Flacio}, \binits{E.}},
+\bauthor{\bsnm{Franceschini}, \binits{A.}},
+\bauthor{\bsnm{Gradoni}, \binits{F.}},
+\bauthor{\bsnm{Kadriaj}, \binits{P.}},
+\bauthor{\bsnm{Lencioni}, \binits{V.}},
+\bauthor{\bsnm{Del~Lesto}, \binits{I.}},
+\bauthor{\bsnm{La~Russa}, \binits{F.}},
+\bauthor{\bsnm{Lia}, \binits{R.P.}},
+\bauthor{\bsnm{Montarsi}, \binits{F.}},
+\bauthor{\bsnm{Otranto}, \binits{D.}},
+\bauthor{\bsnm{L'Ambert}, \binits{G.}},
+\bauthor{\bsnm{Rizzoli}, \binits{A.}},
+\bauthor{\bsnm{Rombol{\`a}}, \binits{P.}},
+\bauthor{\bsnm{Romiti}, \binits{F.}},
+\bauthor{\bsnm{Stancher}, \binits{G.}},
+\bauthor{\bsnm{Torina}, \binits{A.}},
+\bauthor{\bsnm{Velo}, \binits{E.}},
+\bauthor{\bsnm{Virgillito}, \binits{C.}},
+\bauthor{\bsnm{Zandonai}, \binits{F.}},
+\bauthor{\bsnm{Ros{\`a}}, \binits{R.}}:
+\batitle{Vectabundance: a spatio-temporal database of \textit{Aedes} mosquitoes observations}.
+\bjtitle{Scientific Data}
+\bvolume{11}(\bissue{1}),
+\bfpage{636}
+(\byear{2024})
+\doiurl{10.1038/s41597-024-03482-y}
+\end{barticle}
+\endbibitem
+
+%%% 16
+\bibitem{biazzo2026_aiedes}
+\begin{barticle}
+\bauthor{\bsnm{Biazzo}, \binits{I.}},
+\bauthor{\bsnm{Orfei}, \binits{L.}},
+\bauthor{\bsnm{Kioutsioukis}, \binits{I.}},
+\bauthor{\bsnm{Schuh}, \binits{L.}},
+\bauthor{\bsnm{Gossner}, \binits{C.}},
+\bauthor{\bsnm{Briet}, \binits{O.}},
+\bauthor{\bsnm{Markov}, \binits{P.V.}}:
+\batitle{Estimating the Presence and Abundance of \textit{Aedes albopictus} in Europe Using Neural Networks}.
+\bjtitle{bioRxiv}
+\bfpage{2026.05.14.722605}
+(\byear{2026})
+\doiurl{10.64898/2026.05.14.722605}
+\url{https://www.biorxiv.org/content/early/2026/05/18/2026.05.14.722605}
+\end{barticle}
+\endbibitem
+
+%%% 17
+\bibitem{aimsurv_gbif}
+\begin{botherref}
+\oauthor{\bsnm{Miranda~Chueca}, \binits{M.{\'A}.}},
+\oauthor{\bsnm{Barcel{\'o}~Segu{\'\i}}, \binits{C.}}:
+{AIMSurv Aedes Invasive Mosquito species harmonized surveillance in Europe. AIM-COST Action}.
+Universitat de les Illes Balears.
+Sampling-event dataset published via GBIF IPT; license CC0 1.0
+(2022).
+\doiurl{10.15470/vs3677} .
+\url{https://ipt.gbif.es/resource?r=aimsurv}
+\end{botherref}
+\endbibitem
+
+%%% 18
+\bibitem{miranda2022_aimsurv}
+\begin{barticle}
+\bauthor{\bsnm{Miranda}, \binits{M.{\'A}.}},
+\bauthor{\bsnm{Barcel{\'o}}, \binits{C.}},
+\bauthor{\bsnm{Arnoldi}, \binits{D.}}, \betal:
+\batitle{{AIMSurv}: First pan-{European} harmonized surveillance of \textit{Aedes} invasive mosquito species of relevance for human vector-borne diseases}.
+\bjtitle{Gigabyte}
+\bvolume{2022},
+\bfpage{1}--\blpage{11}
+(\byear{2022})
+\doiurl{10.46471/gigabyte.57}
+\end{barticle}
+\endbibitem
+
+%%% 19
+\bibitem{ecdc_mosquito_maps}
+\begin{botherref}
+\oauthor{\bsnm{{European Centre for Disease Prevention and Control}}}:
+Mosquito maps.
+\url{https://www.ecdc.europa.eu/en/disease-vectors/surveillance-and-disease-data/mosquito-maps}.
+Accessed 2024
+(2024)
+\end{botherref}
+\endbibitem
+
+%%% 20
+\bibitem{ecdc_legal_notice}
+\begin{botherref}
+\oauthor{\bsnm{{European Centre for Disease Prevention and Control}}}:
+Legal notice.
+\url{https://www.ecdc.europa.eu/en/legal-notice}.
+Accessed 2024
+(2024)
+\end{botherref}
+\endbibitem
+
+%%% 21
+\bibitem{copernicus_cds}
+\begin{botherref}
+\oauthor{\bsnm{{Copernicus Climate Change Service}}}:
+Climate Data Store.
+Accessed: 2026-02-01
+(2023).
+\url{https://cds.climate.copernicus.eu}
+\end{botherref}
+\endbibitem
+
+%%% 22
+\bibitem{munoz2019_era5}
+\begin{barticle}
+\bauthor{\bsnm{Mu{\~n}oz-Sabater}, \binits{J.}},
+\bauthor{\bsnm{Dutra}, \binits{E.}},
+\bauthor{\bsnm{Agust{\'\i}-Panareda}, \binits{A.}}, \betal:
+\batitle{Era5-land: A state-of-the-art global reanalysis dataset for land applications}.
+\bjtitle{Earth System Science Data}
+\bvolume{13},
+\bfpage{4349}--\blpage{4383}
+(\byear{2021})
+\doiurl{10.5194/essd-13-4349-2021}
+\end{barticle}
+\endbibitem
+
+%%% 23
+\bibitem{cordex}
+\begin{barticle}
+\bauthor{\bsnm{Giorgi}, \binits{F.}},
+\bauthor{\bsnm{Jones}, \binits{C.}},
+\bauthor{\bsnm{Asrar}, \binits{G.R.}}:
+\batitle{Addressing climate information needs at the regional level: the cordex framework}.
+\bjtitle{World Meteorological Organization Bulletin}
+\bvolume{58}(\bissue{3}),
+\bfpage{175}--\blpage{183}
+(\byear{2009})
+\end{barticle}
+\endbibitem
+
+%%% 24
+\bibitem{ecdc2021_vector_surveillance}
+\begin{botherref}
+\oauthor{\bsnm{{European Centre for Disease Prevention and Control}}}:
+Organisation of vector surveillance and control in {Europe}.
+Technical report,
+European Centre for Disease Prevention and Control,
+Stockholm
+(2021).
+\url{https://www.ecdc.europa.eu/en/publications-data/organisation-vector-surveillance-and-control-europe}
+\end{botherref}
+\endbibitem
+
+%%% 25
+\bibitem{ecdc2024a}
+\begin{botherref}
+\oauthor{\bsnm{{ECDC}}}:
+Aedes albopictus Factsheet.
+Available at:
+  \url{https://www.ecdc.europa.eu/en/disease-vectors/facts/mosquito-factsheets/aedes-albopictus}
+  (Accessed: 2026-03-02)
+(2024)
+\end{botherref}
+\endbibitem
+
+%%% 26
+\bibitem{beckjohnson2013}
+\begin{barticle}
+\bauthor{\bsnm{Beck-Johnson}, \binits{L.M.}},
+\bauthor{\bsnm{Nelson}, \binits{W.A.}},
+\bauthor{\bsnm{Paaijmans}, \binits{K.P.}},
+\bauthor{\bsnm{Read}, \binits{A.F.}},
+\bauthor{\bsnm{Thomas}, \binits{M.B.}},
+\bauthor{\bsnm{Bjørnstad}, \binits{O.N.}}:
+\batitle{The effect of temperature on \textit{Anopheles} mosquito population dynamics and the potential for malaria transmission}.
+\bjtitle{PLoS One}
+\bvolume{8}(\bissue{11}),
+\bfpage{79276}
+(\byear{2013})
+\doiurl{10.1371/journal.pone.0079276}
+\end{barticle}
+\endbibitem
+
+%%% 27
+\bibitem{aedes_dataset_jrc}
+\begin{botherref}
+\oauthor{\bsnm{Biazzo}, \binits{I.}},
+\oauthor{\bsnm{Consoli}, \binits{S.}},
+\oauthor{\bsnm{Orfei}, \binits{L.}},
+\oauthor{\bsnm{Schuh}, \binits{L.}},
+\oauthor{\bsnm{Markov}, \binits{P.V.}}:
+Harmonised climate and \textit{{Aedes} albopictus} arboviral vector mosquito surveillance datasets for the {European} continent.
+European Commission, Joint Research Centre (JRC)
+(2025).
+\doiurl{10.2905/e4e68952-a02f-460d-8f85-eb630742741d}
+\end{botherref}
+\endbibitem
+
+%%% 28
+\bibitem{aedes_data_repo}
+\begin{botherref}
+\oauthor{\bsnm{Biazzo}, \binits{I.}},
+\oauthor{\bsnm{Consoli}, \binits{S.}},
+\oauthor{\bsnm{Orfei}, \binits{L.}},
+\oauthor{\bsnm{Schuh}, \binits{L.}},
+\oauthor{\bsnm{Markov}, \binits{P.V.}}:
+{AI4PHI/Aedes-Albopictus-datasets}: Processing pipelines for harmonised \textit{{Aedes} albopictus} surveillance and climate datasets.
+GitHub
+(2025).
+\url{https://github.com/AI4PHI/Aedes-Albopictus-datasets}
+\end{botherref}
+\endbibitem
+
+\end{thebibliography}
+
+\end{document}
