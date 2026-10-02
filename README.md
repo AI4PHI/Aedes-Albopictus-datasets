@@ -1,10 +1,10 @@
 # AIedes Albopictus Datasets
 
-Code and pipelines for constructing the harmonised European surveillance–climate datasets for *Aedes albopictus* described in the accompanying paper:
+Code and pipelines for constructing the harmonised European surveillance–climate datasets for *Aedes albopictus* described in the published article:
 
-> **Harmonized European surveillance–climate datasets for *Aedes albopictus***
-> Biazzo I., Orfei L., Consoli S., Schuh L., Markov P. V.
-> European Commission, Joint Research Centre (JRC), Ispra, Italy
+> **Harmonised climate and *Aedes albopictus* arboviral vector mosquito surveillance datasets for the European continent**
+> Biazzo I., Orfei L., Consoli S., Schuh L., Markov P. V. (2026). *Scientific Data*.
+> [Published article](https://www.nature.com/articles/s41597-026-08307-8) · [DOI](https://doi.org/10.1038/s41597-026-08307-8)
 
 ## Purpose
 
@@ -134,7 +134,7 @@ pip install -r requirements-dev.txt
 
 If you use these datasets or pipelines, please cite:
 
-> [Authors] (2025). Harmonized European surveillance–climate datasets for *Aedes albopictus*. [Journal/Repository]. [DOI]
+> Biazzo, I., Orfei, L., Consoli, S. *et al.* (2026). Harmonised climate and *Aedes albopictus* arboviral vector mosquito surveillance datasets for the European continent. *Scientific Data*. https://doi.org/10.1038/s41597-026-08307-8
 
 See the individual dataset READMEs for source-specific citations.
 
